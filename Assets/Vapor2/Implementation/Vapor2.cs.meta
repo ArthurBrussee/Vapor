@@ -1,0 +1,14 @@
+fileFormatVersion: 2
+guid: a2a7e54b4a14f69488bbdbed50a0eb85
+timeCreated: 1434753482
+licenseType: Pro
+MonoImporter:
+  serializedVersion: 2
+  defaultReferences:
+  - m_scatteringShader: {fileID: 7200000, guid: 43461ea8a27fb444795390cd9fed173c,
+      type: 3}
+  executionOrder: 0
+  icon: {instanceID: 0}
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

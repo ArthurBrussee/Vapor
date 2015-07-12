@@ -34,35 +34,18 @@ Thumbs.db
 # ============ #
 # Unity Store  #
 # ============ #
-Assets/Gizmos.meta
-Assets/Gizmos/
-Assets/Marmoset.meta
-Assets/Marmoset/
-Assets/CandelaSSRR.meta
-Assets/CandelaSSRR/
-Assets/redLights.meta
-Assets/redLights/
-Assets/Sonic Ether.meta
-Assets/Sonic Ether/
-Assets/AmplifyTexture.meta
-Assets/AmplifyTexture/
-ProjectSettings/AmplifySettings.asset
-Assets/Plugins.meta
-Assets/Plugins/
-Assets/Sinuous_SciFi_Signs.meta
-Assets/Sinuous_SciFi_Signs/
+
 
 # ============ #
 # Testing      #
 # ============ #
-Assets/DevTestAssets/
-Assets/DevTestAssets.meta
-_ReSharper.Alloy-csharp/
-Assets/Substances_Free.meta
-Assets/Substances_Free/
-UnityVS.Alloy.sln.ide/
 Assets/UnityVS/
-Alloy-csharp.sln.ide/
 Assets/UnityVS.meta
-Assets/Alloy3Samples
-Assets/Alloy3Samples.meta
+Assets/Sonic Ether/
+UnityVS.New Unity Project.sln.ide/storage.ide
+UnityVS.New Unity Project.sln.ide/edbres00002.jrs
+Assets/Sonic Ether.meta
+UnityVS.New Unity Project.sln.ide/edbres00001.jrs
+UnityVS.New Unity Project.sln.ide/edb00002.log
+UnityVS.New Unity Project.sln.ide/edb.log
+UnityVS.New Unity Project.sln.ide/edb.chk

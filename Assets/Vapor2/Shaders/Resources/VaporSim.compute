@@ -1,0 +1,199 @@
+﻿#pragma kernel Scatter
+#pragma kernel CalculateDensity
+
+
+#define Z_RESOLUTION 128
+
+RWTexture3D<half4> _ScatterTexture;
+sampler3D samplerScatterTexture;
+
+Texture3D<half4> _DensityTexture;
+RWTexture3D<half4> _DensityTextureWrite;
+sampler3D samplerDensityTexture;
+
+float3 _TextureResolution;
+float4 _Size;
+float4x4 _CameraToWorld;
+
+//Noise declarations:
+float3 _NoiseStrength;
+
+#define DECLARE_NOISE_LAYER(n)	\
+float3 _NoiseScale##n;			\
+float3 _NoiseScroll##n;			\
+Texture3D _NoiseTex##n;
+
+DECLARE_NOISE_LAYER(0)
+DECLARE_NOISE_LAYER(1)
+DECLARE_NOISE_LAYER(2)
+
+
+float4 _PlaneSettings;
+
+Texture2D _ShadowMapTexture;
+SamplerState MyPointClampSampler;
+SamplerState MyLinearRepeatSampler;
+
+//Light data
+float3 _LightDirection;
+float3 _CameraPos;
+float4 _LightColor;
+
+//Screen -> World
+
+float _Anisotropy;
+
+float4x4 unity_World2Shadow0;
+float4x4 unity_World2Shadow1;
+float4x4 unity_World2Shadow2;
+float4x4 unity_World2Shadow3;
+
+float4 _LightSplitsNear;
+float4 _LightSplitsFar;
+
+float _FogDensity;
+float4 _Ambient;
+float _InscatterIntensity;
+
+inline float4 getCascadeWeights(float z) {
+	float4 zNear = float4( z >= _LightSplitsNear );
+	float4 zFar = float4( z < _LightSplitsFar );
+	float4 weights = zNear * zFar;
+	return weights;
+}
+float _ShadowSoft;
+
+//TODO: Cascades
+inline float GetShadow(float3 wpos, float z){
+	float4 multPos = float4(wpos, 1.0f);
+
+	float4 weights = getCascadeWeights(z);
+	float4 coords = weights.x * mul(unity_World2Shadow0, multPos) +
+					weights.y * mul(unity_World2Shadow1, multPos) +
+					weights.z * mul(unity_World2Shadow2, multPos) +
+					weights.w * mul(unity_World2Shadow3, multPos);
+
+
+	float depth = _ShadowMapTexture.SampleLevel(MyPointClampSampler, coords.xy, 0.0f).r;
+	
+	const float k = 10.0f;
+	return saturate(exp(_ShadowSoft*(depth-coords.z)));
+	//return (depth) > ;
+}
+
+
+inline float GetZDepth(uint z){
+	float zz = (z + 0.5f) / _TextureResolution.z;
+	zz = pow(abs(zz), 0.02f);
+	return zz;
+}
+
+inline float3 GetWorldPos(uint x, uint y, uint z){
+	float xx = (x + 0.5f) / _TextureResolution.x;
+	float yy = (y + 0.5f) / _TextureResolution.y;
+	float zz = GetZDepth(z);
+
+	float zLocal = (_PlaneSettings.w) / (zz - _PlaneSettings.z - 0.5f);
+	float zUvAcc = (zLocal - _PlaneSettings.x) / (_PlaneSettings.y - _PlaneSettings.x);
+		
+	float2 size = _Size.xy * zUvAcc * 0.5f;
+
+	float xLocal = lerp(-size.x, size.x, xx);
+	float yLocal = lerp(-size.y, size.y, yy);
+	
+	float3 localPos = float3(xLocal, yLocal, zLocal);	
+	float4 worldPos = mul(_CameraToWorld, float4(localPos, 1.0f));
+
+	return worldPos.xyz / worldPos.w;
+}
+
+inline float4 GetWorldPosZLocal(uint x, uint y, uint z){
+	float xx = (x + 0.5f) / _TextureResolution.x;
+	float yy = (y + 0.5f) / _TextureResolution.y;
+	float zz = GetZDepth(z);
+
+	float zLocal = (_PlaneSettings.w) / (zz - _PlaneSettings.z - 0.5f);
+	float zUvAcc = (zLocal - _PlaneSettings.x) / (_PlaneSettings.y - _PlaneSettings.x);
+		
+	float2 size = _Size.xy * zUvAcc * 0.5f;
+
+	float xLocal = lerp(-size.x, size.x, xx);
+	float yLocal = lerp(-size.y, size.y, yy);
+	
+	float3 localPos = float3(xLocal, yLocal, zLocal);	
+	float4 worldPos = mul(_CameraToWorld, float4(localPos, 1.0f));
+
+	return float4(worldPos.xyz / worldPos.w, zLocal);
+}
+
+inline float4 AccumulateScattering(float4 colorAndDensityFront, float4 colorAndDensityBack){
+	float3 light = colorAndDensityFront.rgb + saturate(exp(-colorAndDensityFront.a)) * colorAndDensityBack.rgb;
+	return float4(light.rgb, colorAndDensityFront.a + colorAndDensityBack.a);
+}
+
+inline void WriteOutput(uint3 pos, float4 colorAndDensity){
+	float4 finalValue = float4(colorAndDensity.rgb, exp(-colorAndDensity.a));
+	_ScatterTexture[pos] = finalValue;
+}
+
+//Solve scattering equation
+//64 threads, blocks of 4x4x4
+[numthreads(8, 8, 1)]
+void Scatter(uint3 id : SV_DispatchThreadID){
+	float4 currentSliceValue = _DensityTexture[uint3(id.xy,0)].rgba;
+	WriteOutput(uint3(id.xy, 0), currentSliceValue);
+
+	for(int z = 1; z < Z_RESOLUTION; ++z){
+		float4 nextValue = _DensityTexture[uint3(id.xy, z)].rgba;
+		currentSliceValue = AccumulateScattering(currentSliceValue, nextValue);
+		WriteOutput(uint3(id.xy, z), currentSliceValue);
+	}
+}
+
+float GetScatterHenyey(float cosTheta, float g){
+	float gg = g * g;
+	return 1/(4 * 3.1415) * (1 - gg) / pow(abs(1 + gg - 2 * g * cosTheta), 2.0f / 3.0f);
+}
+
+inline float GetZUvAcc(uint z){
+	float zz = z / _TextureResolution.z;
+	float zLocal = (_PlaneSettings.w) / (zz - _PlaneSettings.z - 0.5f);
+	float zUvAcc = (zLocal - _PlaneSettings.x) / (_PlaneSettings.y - _PlaneSettings.x);
+
+	return zUvAcc;
+}
+
+//64 threads, blocks of 4x4x4
+[numthreads(4, 4, 4)]
+void CalculateDensity(uint3 id : SV_DispatchThreadID){
+	float4 worldPosZ = GetWorldPosZLocal(id.x, id.y, id.z);
+
+
+	float3 worldPos = worldPosZ.xyz;
+	
+	float3 direction = normalize(_CameraPos - worldPos);
+	float cosTheta = dot(direction, _LightDirection);
+	float scatter = GetScatterHenyey(cosTheta, _Anisotropy);
+
+	float3 coord0 = worldPos * _NoiseScale0 + _NoiseScroll0;
+	float3 coord1 = worldPos * _NoiseScale1 + _NoiseScroll1;
+	float3 coord2 = worldPos * _NoiseScale2 + _NoiseScroll2;
+	
+	float3 noiseValues = float3(
+		_NoiseTex0.SampleLevel(MyLinearRepeatSampler, coord0, 0).a, 
+		_NoiseTex1.SampleLevel(MyLinearRepeatSampler, coord1, 0).a, 
+		_NoiseTex2.SampleLevel(MyLinearRepeatSampler, coord2, 0).a
+	);
+
+	
+
+	float shadow = GetShadow(worldPos, worldPosZ.w);
+
+	float4 fog;
+	fog.a = (1.0f + dot(noiseValues, _NoiseStrength)) * _FogDensity;
+	fog.rgb = scatter * shadow * _LightColor.rgb * _InscatterIntensity * (1.0f - exp(-fog.a)) + _Ambient.rgb * _Ambient.a;	
+	float volume = worldPosZ.w * 0.01f;
+	fog *= volume;
+	
+	_DensityTextureWrite[id] = fog;
+}
