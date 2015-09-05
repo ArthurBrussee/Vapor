@@ -22,7 +22,7 @@ public class NoiseLayer
 	public float Strength = 1.0f;
 
 	const int c_noiseSize = 32;
-	private const float c_scale = 100.0f;
+	private const float c_scale = 0.1f;
 
 	public Vector3 SetScale {
 		get { return Scale * c_scale; }
@@ -33,7 +33,7 @@ public class NoiseLayer
 	}
 
 	public Vector3 SetScaledScrollSpeed {
-		get { return Vector3.Scale(ScrollSpeed, SetInvScale); }
+		get { return Vector3.Scale(ScrollSpeed, SetScale); }
 	}
 
 	private Texture3D m_textureLayer;
@@ -113,7 +113,7 @@ public class NoiseLayer
 
 	public void Bind(int kernel, ComputeShader compute, int i) {
 		compute.SetTexture(kernel, s_texNames[i], m_textureLayer);
-		compute.SetVector(s_scaleNames[i], SetInvScale);
+	    compute.SetVector(s_scaleNames[i], SetScale);
 		compute.SetVector(s_scrollNames[i], SetScaledScrollSpeed * Time.time);
 	}
 }

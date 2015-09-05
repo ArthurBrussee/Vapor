@@ -30,10 +30,12 @@
 			#pragma vertex vert
 			#pragma fragment frag
 			#pragma target 5.0
+
+			#define Z_POWER_CURVE 0.02
+
 			float _MaskStrength;
 			float _NearPlane;
 			float _FarPlane;
-			sampler2D _ShadowTexture;
 			
 			sampler2D_float _CameraDepthTexture;
 
@@ -41,7 +43,12 @@
 				float4 pos : SV_POSITION;
 				float4 texcoord : TEXCOORD0;
 				float3 worldPos : TEXCOORD1;
+
+				float4 cameraRay : TEXCOORD2;
 			};
+
+			float4x4 InverseProjectionMatrix;
+			float4x4 InverseViewMatrix;
 
 			v2fFog vert(appdata_full v){
 				v2fFog o;
@@ -50,6 +57,12 @@
 				o.pos = pos;
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
 				o.worldPos = mul(_Object2World, v.vertex).xyz;
+
+
+				float4 clipPos = float4(v.texcoord.xy * 2.0 - 1.0, 1.0, 1.0);
+				float4 cameraRay = mul(InverseProjectionMatrix, clipPos);
+				o.cameraRay = cameraRay / cameraRay.w;
+
 				return o;
 			}	
 
@@ -68,25 +81,22 @@
 			float4 _ColSettings;
 			sampler2D _ColGradient;
 			*/
-			
+
 			
 			sampler3D _ScatterTex;
 
 			float4 frag(v2fFog i) : COLOR0 {	
-				float4 screenPos = i.texcoord;
-				float2 screenUv = screenPos.xy;
-               	float4 color = tex2D(_MainTex, screenUv);
-								
-				float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, screenUv);
-				screenPos.z = pow(depth, 1.0f / 0.02f);
+				// read low res depth and reconstruct world position
+				float depth = SAMPLE_DEPTH_TEXTURE(_CameraDepthTexture, i.texcoord);
+               	float4 color = tex2D(_MainTex, i.texcoord);
+				depth = pow(depth, 1.0f / Z_POWER_CURVE);
 				
+				//TODO: Halton jitter
 
-				float4 fog = tex3Dlod(_ScatterTex, screenPos);
+				float4 fog = tex3Dlod(_ScatterTex, float4(i.texcoord.xy, depth, 0.0f));
 
 
 				/*
-				//TODO: Euclidian
-
 				float3 b0 = tex2D(_Bloom0, screenUv).rgb;
 				float3 b1 = tex2D(_Bloom1, screenUv).rgb;
 				float3 b2 = tex2D(_Bloom2, screenUv).rgb;
@@ -112,6 +122,7 @@
 				fog *= tex2Dlod(_ColGradient, gradientUv);
 				*/
 
+				fog.a = exp(-fog.a);
 				return float4(color.rgb * fog.aaa + fog.rgb, color.a);
 			}
 			

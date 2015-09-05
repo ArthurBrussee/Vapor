@@ -39,7 +39,7 @@ Shader "Hidden/Vapor/ShadowProperties" {
 		int index = floor(i.uv.x * 4.0f);
 		int y = floor(i.uv.y * 5.0f);
 
-		if (index < 4 && y < 4) {
+		if (y < 4) {
 			return unity_World2Shadow[y][index];
 		}
 		if (y == 4) {
@@ -49,6 +49,10 @@ Shader "Hidden/Vapor/ShadowProperties" {
 
 			if (index == 1) {
 				return _LightSplitsFar;
+			}
+
+			if (index == 2) {
+				return _LightShadowData;
 			}
 		}
 
