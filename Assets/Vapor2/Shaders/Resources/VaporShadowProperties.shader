@@ -5,43 +5,24 @@ Shader "Hidden/Vapor/ShadowProperties" {
 	}
 
 		CGINCLUDE
-#include "UnityCG.cginc"
-#pragma target 5.0
+	#include "UnityCG.cginc"
+	#include "VaporCommon.cginc"
+	
+	#pragma target 5.0
 
-		// Configuration
+	// Configuration
+	sampler2D _MainTex;
 
-		sampler2D _MainTex;
 
 
-	struct appdata {
-		float4 vertex : POSITION;
-		float2 texcoord : TEXCOORD0;
-		float3 normal : NORMAL;
-	};
-
-	struct v2f {
-		float4 pos : SV_POSITION;
-		float2 uv : TEXCOORD0;
-	};
-
-	v2f vert(appdata v)
-	{
-		v2f o;
-		o.pos = mul(UNITY_MATRIX_MVP, v.vertex);
-		o.uv = v.texcoord;
-
-		return o;
-	}
-
-	fixed4 frag_hard(v2f i) : SV_Target
-	{
-
-		int index = floor(i.uv.x * 4.0f);
-		int y = floor(i.uv.y * 5.0f);
+	fixed4 frag(v2f i) : SV_Target{
+		uint index = floor(i.uv.x * 4.0f);
+		uint y = floor(i.uv.y * 5.0f);
 
 		if (y < 4) {
 			return unity_World2Shadow[y][index];
 		}
+
 		if (y == 4) {
 			if (index == 0) {
 				return _LightSplitsNear;
@@ -55,26 +36,37 @@ Shader "Hidden/Vapor/ShadowProperties" {
 				return _LightShadowData;
 			}
 		}
-
-		//More properties?
 		return 0.0f;
 	}
 	
+	//Spot lights only need VP matrix
+	fixed4 frag_spot(v2f i) : SV_Target{
+		uint index = floor(i.uv.x * 4.0f);
+		return UNITY_MATRIX_VP[index];
+	}
+
 	ENDCG
 
 
-		// ----------------------------------------------------------------------------------------
-		// Subshader for hard shadows:
-		// Just collect shadows into the buffer. Used on pre-SM3 GPUs and when hard shadows are picked.
-
-		SubShader {
+	SubShader {
+		//Pass for directional light properties
 		Pass{
 			ZWrite Off ZTest Always Cull Off
 
 			CGPROGRAM
-#pragma vertex vert
-#pragma fragment frag_hard
+				#pragma vertex vert_vapor_fs
+				#pragma fragment frag
 
+			ENDCG
+		}
+
+		//Pass for spot light properties
+		Pass{
+			ZWrite Off ZTest Always Cull Off
+
+			CGPROGRAM
+				#pragma vertex vert_vapor_fs
+				#pragma fragment frag_spot
 			ENDCG
 		}
 	}

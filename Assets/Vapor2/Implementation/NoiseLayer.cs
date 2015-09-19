@@ -12,7 +12,7 @@ public class NoiseLayer
 
 	public float Persistence = 0.97f;
 	public float Lacunarity = 1.3f;
-	public int Octaves = 5;
+	public int PerlinOctaves = 1;
 	public int Seed = -1;
 
 	[Header("Tile settings")]
@@ -22,7 +22,7 @@ public class NoiseLayer
 	public float Strength = 1.0f;
 
 	const int c_noiseSize = 32;
-	private const float c_scale = 0.1f;
+	private const float c_scale = 100.0f;
 
 	public Vector3 SetScale {
 		get { return Scale * c_scale; }
@@ -33,7 +33,7 @@ public class NoiseLayer
 	}
 
 	public Vector3 SetScaledScrollSpeed {
-		get { return Vector3.Scale(ScrollSpeed, SetScale); }
+		get { return Vector3.Scale(ScrollSpeed, SetInvScale); }
 	}
 
 	private Texture3D m_textureLayer;
@@ -76,7 +76,7 @@ public class NoiseLayer
 					y *= Frequency;
 					z *= Frequency;
 
-					for (int index = 0; index < Octaves; ++index) {
+					for (int index = 0; index < PerlinOctaves; ++index) {
 						float noiseAt = (2.0f *
 							Mathf.Abs(Utils.GradientCoherentNoise3D(Utils.MakeInt32Range(x), Utils.MakeInt32Range(y),
 								Utils.MakeInt32Range(z), (seed + index) & uint.MaxValue)) - 1.0f);
@@ -113,7 +113,7 @@ public class NoiseLayer
 
 	public void Bind(int kernel, ComputeShader compute, int i) {
 		compute.SetTexture(kernel, s_texNames[i], m_textureLayer);
-	    compute.SetVector(s_scaleNames[i], SetScale);
+	    compute.SetVector(s_scaleNames[i], SetInvScale);
 		compute.SetVector(s_scrollNames[i], SetScaledScrollSpeed * Time.time);
 	}
 }
