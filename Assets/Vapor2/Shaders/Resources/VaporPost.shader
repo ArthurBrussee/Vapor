@@ -23,7 +23,7 @@
 		half4 _MainTex_TexelSize;
 		sampler2D _MainTex;
 
-		#define DEPTH_POW 8
+		#define DEPTH_POW 6
 
 
 		#define UINT_MAX 4294967295.0f

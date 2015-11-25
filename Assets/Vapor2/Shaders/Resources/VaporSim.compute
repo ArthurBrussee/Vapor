@@ -357,13 +357,16 @@ inline float GetFaloff(float3 dd, float range){
 					float3 dd = worldPos - light.PosRange.xyz;
 
 					float faloff = GetFaloff(dd, light.PosRange.w);
-					float4 shadowCoord = mul(light.ShadowMatrix, float4(worldPos, 1.0f));
+					float4 shadowCoord = mul(light.ShadowMatrix, worldPosRaw);
 					shadowCoord.xyz /= shadowCoord.w;
 
 					//From device coords to clip space. TODO: Apply in matrix
 					shadowCoord.xy = shadowCoord.xy * 0.5f + 0.5f;
+					shadowCoord.y = 1.0f - shadowCoord.y;
+
 
 					float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
+					//faloff *= depth > saturate(shadowCoord.z) ? 1.0f : 0.0f;
 					faloff *= saturate(depth * exp(-_ShadowSoft * saturate(shadowCoord.z)));
 			
 					float cosTheta = dot(direction, normalize(dd));

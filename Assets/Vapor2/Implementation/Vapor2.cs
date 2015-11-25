@@ -94,17 +94,6 @@ namespace Vapor {
 
 		private List<VaporLight> m_vaporLights = new List<VaporLight>(); 
 
-		/*
-		private struct LightShadowData {
-			public CommandBuffer Buf;
-			public RenderTexture Tex;
-			public RenderTexture MatrixTex;
-		}*/
-
-		//private Dictionary<Light, LightShadowData> m_lightToBuf = new Dictionary<Light, LightShadowData>();
-		//private RenderTexture m_spotMatrixTex;
-
-
 		private static string[] s_matrixNames = {
 													"unity_World2Shadow0", "unity_World2Shadow1", "unity_World2Shadow2",
 													"unity_World2Shadow3"
@@ -391,7 +380,6 @@ namespace Vapor {
 							set[i, 2] = col.b;
 							set[i, 3] = col.a;
 						}
-
 
 						m_spotLightDataBuffer[spotLightCount].ShadowMatrix = set;
 					}
