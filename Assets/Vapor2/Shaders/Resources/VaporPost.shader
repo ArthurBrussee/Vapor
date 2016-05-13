@@ -1,4 +1,6 @@
-﻿Shader "Hidden/VaporPost" {
+﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+Shader "Hidden/VaporPost" {
 	Properties {
 		_MainTex("Main tex", 2D) = "white" {}
 		
@@ -68,7 +70,7 @@
 				float4 pos = mul(UNITY_MATRIX_MVP, v.vertex);
 				o.pos = pos;
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
-				o.worldPos = mul(_Object2World, v.vertex).xyz;
+				o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
 
 				return o;
 			}	
@@ -136,7 +138,7 @@
 				float4 pos = mul(UNITY_MATRIX_MVP, v.vertex);
 				o.pos = pos;
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
-				o.worldPos = mul(_Object2World, v.vertex).xyz;
+				o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
 
 				return o;
 			}

@@ -253,10 +253,10 @@ inline float3 GetUVFromFrustum(float3 frustum, float3 jitter){
 	return frustum;
 }
 
-inline float4 GetFrustumFromID(uint3 id, float3 jitter){
-	float xUv = (id.x + jitter.x) / ((X_RESOLUTION) * 0.5f) - 1.0f;
-	float yUv = (id.y + jitter.y) / ((Y_RESOLUTION) * 0.5f) - 1.0f;
-	float zUv = (id.z + jitter.z) / (Z_RESOLUTION);
+inline float4 GetFrustumFromID(uint3 id, float jitter){
+	float xUv = (id.x + jitter) / ((X_RESOLUTION) * 0.5f) - 1.0f;
+	float yUv = (id.y + jitter) / ((Y_RESOLUTION) * 0.5f) - 1.0f;
+	float zUv = (id.z + jitter) / (Z_RESOLUTION);
 	//for linear depth sample
 	zUv = pow(zUv, DEPTH_POW);
 	zUv = Linear01DepthInv(zUv);
@@ -289,23 +289,14 @@ inline float GetFaloff(float3 dd, float range){
 
 //64 threads, blocks of 4x4x4
 [numthreads(4, 4, 4)] void FogDensity(uint3 id : SV_DispatchThreadID){
-	//uint jitterZ = GetHalton(id);
-	//uint jitterX = GetXor(jitterZ);
-	//uint jitterY = GetXor(jitterX);
-
-	float jitterZ = GetHalton(id.x + id.y * X_RESOLUTION+ _Frame * X_RESOLUTION * Y_RESOLUTION) / UINT_MAX;
-	uint jitterX = 0.0f;
-	uint jitterY = 0.0f;	
-
-	//float3 jitter = (float3( jitterX, jitterY, jitterZ) / UINT_MAX - 0.5f) * _TemporalStrength + 0.5f;
-	float3 jitter = (float3( jitterX, jitterY, jitterZ) - 0.5f) * _TemporalStrength + 0.5f;
+	float jitter = (GetHalton(id.x + id.y * X_RESOLUTION + _Frame * X_RESOLUTION * Y_RESOLUTION) / UINT_MAX - 0.5f) * _TemporalStrength + 0.5f;
 
 
 	float4 frustCoord = GetFrustumFromID(id, jitter);
 	float4 worldPosRaw = mul(_VAPOR_I_VP, frustCoord);
 	float3 worldPos = worldPosRaw.xyz / worldPosRaw.w;
 	
-	float zLocal = _PlaneSettings.x + _PlaneSettings.y * pow((id.z + jitter.z) / Z_RESOLUTION, DEPTH_POW);
+	float zLocal = _PlaneSettings.x + _PlaneSettings.y * pow((id.z + jitter) / Z_RESOLUTION, DEPTH_POW);
 
 
 	float4 fogPropertiesScatter = _AlbedoExt;

@@ -210,17 +210,11 @@ namespace Vapor {
 			
             s_visualizeMode = (VisualizeMode) EditorGUILayout.EnumPopup("Visualize Mode", s_visualizeMode);
 			
-            GUI.enabled = false;
-		    foreach (Vapor2 targ in targets) {
-			    GUI.enabled = true;
-			    break;
-		    }
 		    if (GUILayout.Button("Rebake noise", EditorStyles.toolbarButton)) {
 			    foreach (Vapor2 targ in targets) {
 				    targ.BakeNoiseLayers();
 			    }
 		    }
-		    GUI.enabled = true;
             serializedObject.ApplyModifiedProperties();
 			
             if (noiseDirty) {

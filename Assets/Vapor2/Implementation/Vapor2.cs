@@ -1,29 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
-using Random = UnityEngine.Random;
 #if UNITY_EDITOR
 using UnityEditor;
 #endif
 
 namespace Vapor {
-	public struct VaporPointLight {
-		public Vector4 PosRange;
-		public Vector4 Intensity;
-		public const int Stride = 32;
-	}
-
-	public struct VaporSpotLight {
-		public Vector4 PosRange;
-		public Vector4 Intensity;
-
-		public Matrix4x4 LightMatrix;
-		public Matrix4x4 ShadowMatrix;
-
-		public const int Stride = 160;
-	}
-
 	[ExecuteInEditMode]
 	public class Vapor2 : MonoBehaviour {
 		public static Vapor2 Instance;
@@ -70,7 +54,6 @@ namespace Vapor {
 		private int m_scatterKernel;
 		private int m_densityKernel;
 
-		private Camera m_camera;
 		private Material m_fogMat;
 
 		//Point light data
@@ -179,8 +162,6 @@ namespace Vapor {
 				BakeNoiseLayers();
 			}
 
-			m_camera = GetComponent<Camera>();
-			
 		}
 
 		private void CreateComputeBuffers() {
@@ -213,7 +194,7 @@ namespace Vapor {
 
 			tex = new RenderTexture(c_horizontalTextureRes, c_verticalTextureRes, 0, RenderTextureFormat.ARGBHalf);
 			tex.volumeDepth = c_volumeDepth;
-			tex.isVolume = true;
+			tex.dimension = TextureDimension.Tex3D;
 			tex.enableRandomWrite = true;
 			tex.wrapMode = TextureWrapMode.Clamp;
 			tex.filterMode = FilterMode.Bilinear;
@@ -231,8 +212,8 @@ namespace Vapor {
 			m_vaporCompute.SetTexture(m_scatterKernel, "_DensityTexture", m_densityTex);
 			m_vaporCompute.SetTexture(m_scatterKernel, "_ScatterTexture", m_scatterTex);
 
-			float near = m_camera.nearClipPlane;
-			float far = m_camera.farClipPlane;
+			float near = Camera.current.nearClipPlane;
+			float far = Camera.current.farClipPlane;
 			Vector4 planeSettings = new Vector4(near, far - near, (far + near) / (2 * (far - near)) + 0.5f, (-far * near) / (far - near));
 			m_vaporCompute.SetVector("_PlaneSettings", planeSettings);
 
@@ -253,7 +234,7 @@ namespace Vapor {
 			m_vaporCompute.SetVector("_AmbientLight", AmbientLight);
 
 			m_vaporCompute.SetInt("_Frame", Time.frameCount);
-			m_vaporCompute.SetVector("_CameraPos", Camera.current.transform.position);
+			m_vaporCompute.SetVector("_CameraPos", transform.position);
 					
 
 			//Grab other info from texture
@@ -458,13 +439,9 @@ namespace Vapor {
 		private void BindMaterial() {
 			m_fogMat.SetTexture("_ScatterTex", m_scatterTex);
 			m_fogMat.SetInt("_Frame", ++m_frameCount);
-
 		}
 		
-		private float Noise(float channel) {
-			return Random.value *2.0f - 1.0f;
-		}
-
+	
 		private void OnPreRender() {
 			foreach (var vaporLight in m_vaporLights) {
 				vaporLight.UpdateCommandBuffer();
@@ -472,19 +449,21 @@ namespace Vapor {
 		}
 
 
-
 		private void OnRenderImage(RenderTexture source, RenderTexture destination) {
-			//Ideally would do this a little earlier
 			BindCompute();
-			BindMaterial();
 
 			Profiler.BeginSample("Density");
-			m_vaporCompute.Dispatch(m_densityKernel, m_densityTex.width / 4 , m_densityTex.height / 4, m_densityTex.volumeDepth / 4);
+			m_vaporCompute.Dispatch(m_densityKernel, m_densityTex.width / 4, m_densityTex.height / 4, m_densityTex.volumeDepth / 4);
 			Profiler.EndSample();
 
 			Profiler.BeginSample("Scattering");
 			m_vaporCompute.Dispatch(m_scatterKernel, m_densityTex.width / 8, m_densityTex.height / 8, 1);
 			Profiler.EndSample();
+
+
+			//Ideally would do this a little earlier
+			BindMaterial();
+
 
 			var temp = m_densityTex;
 			m_densityTex = m_densityTexOld;

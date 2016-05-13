@@ -1,4 +1,6 @@
-﻿Shader "Hidden/VaporNoiseVisualize" {
+﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+Shader "Hidden/VaporNoiseVisualize" {
 	Properties {
 		_MainTex("Main tex", 2D) = "white" {}
 		_NoiseTex0("Noise tex 0", 3D) = "white" {}
@@ -98,7 +100,7 @@
 				o.pos =  mul(UNITY_MATRIX_MVP, v.vertex);
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
 
-				o.worldPos = mul(_Object2World, v.vertex);
+				o.worldPos = mul(unity_ObjectToWorld, v.vertex);
 
 				return o;
 			}

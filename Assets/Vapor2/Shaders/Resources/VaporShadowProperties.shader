@@ -1,4 +1,6 @@
-﻿// Collects cascaded shadows into screen space buffer
+﻿// Upgrade NOTE: replaced 'unity_World2Shadow' with 'unity_WorldToShadow'
+
+// Collects cascaded shadows into screen space buffer
 Shader "Hidden/Vapor/ShadowProperties" {
 	Properties{
 		_MainTex("", any) = "" {}
@@ -20,7 +22,7 @@ Shader "Hidden/Vapor/ShadowProperties" {
 		uint y = floor(i.uv.y * 5.0f);
 
 		if (y < 4) {
-			return unity_World2Shadow[y][index];
+			return unity_WorldToShadow[y][index];
 		}
 
 		if (y == 4) {
