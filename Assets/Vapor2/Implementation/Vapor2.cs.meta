@@ -1,6 +1,6 @@
 fileFormatVersion: 2
 guid: a2a7e54b4a14f69488bbdbed50a0eb85
-timeCreated: 1442449891
+timeCreated: 1463349113
 licenseType: Pro
 MonoImporter:
   serializedVersion: 2
@@ -12,7 +12,7 @@ MonoImporter:
   - ShadowEsmShader: {fileID: 4800000, guid: cfd1f86d0217c8545a3c46297c646453, type: 3}
   - Sun: {instanceID: 0}
   - SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
-  executionOrder: 0
+  executionOrder: -10
   icon: {instanceID: 0}
   userData: 
   assetBundleName: 

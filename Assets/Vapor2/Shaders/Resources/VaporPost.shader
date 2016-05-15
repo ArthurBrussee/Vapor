@@ -53,7 +53,6 @@ Shader "Hidden/VaporPost" {
 
 
 			sampler3D _ScatterTex;
-			uint _Frame;
 
 
 			struct v2fFog {

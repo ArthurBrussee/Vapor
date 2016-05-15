@@ -1,13 +1,12 @@
 ﻿#pragma kernel Scatter
 #pragma kernel FogDensity SCATTER_SHADOW SHADOW_CASCADE
 
-//TODO: Friggin syntax highlighting
 #define ONE_OVER_4_PI (1.0f / 4.0f * 3.141596f)
 #define DEPTH_POW 6
 
 #define X_RESOLUTION 240
 #define Y_RESOLUTION 136
-#define Z_RESOLUTION 256
+#define Z_RESOLUTION 128
 
 #define UINT_MAX 4294967295.0f
 
@@ -28,13 +27,16 @@ struct SpotLight{
 StructuredBuffer<SpotLight> _SpotLightBuffer;
 uint _SpotLightCount;
 
+
 float _ExponentialWeight;
+
 
 RWTexture3D<half4> _ScatterTexture;
 RWTexture3D<half4> _DensityTextureWrite;
 
 Texture3D<half4> _DensityTexture;
 Texture3D<half4> _DensityTextureOld;
+
 
 //Noise definitions
 float4 _NoiseStrength;
@@ -48,7 +50,6 @@ DECLARE_NOISE_LAYER(0)
 DECLARE_NOISE_LAYER(1)
 DECLARE_NOISE_LAYER(2)
 
-
 //Main Light data
 float4 _LightColor;
 float4 _CameraPos;
@@ -57,7 +58,6 @@ float4 _CameraPos;
 float4 _LightDirection;
 Texture2D<float> _ShadowMapTexture;
 
-
 //Spot light data
 Texture2D _SpotCookie;
 SamplerState sampler_SpotCookie;
@@ -65,12 +65,9 @@ SamplerState sampler_SpotCookie;
 Texture2D _SpotShadow;
 float4 _ZBufferParams;
 
-
 //Shadow stuff
 float4 _PlaneSettings;
 
-
-SamplerState MyPointClampSampler;
 SamplerState MyLinearRepeatSampler;
 SamplerState MyLinearClampSampler;
 
@@ -80,7 +77,6 @@ float4x4 unity_World2Shadow1;
 float4x4 unity_World2Shadow2;
 float4x4 unity_World2Shadow3;
 
-float4 _LightSplitsNear;
 float4 _LightSplitsFar;
 
 float _ShadowSoft;
@@ -89,7 +85,6 @@ float _ShadowBias;
 
 //Cascade clamp. 
 float4 _Range;
-
 
 //To world & reprojection
 float4x4 _VAPOR_I_VP;
@@ -106,38 +101,32 @@ float _ReprojectionSmoothing;
 float _TemporalStrength;
 
 
-float GetHalton2(uint index)
+float GetHalton2(uint3 id)
 {
-       float result = 0.0f;
-       float  f = 1;
-       uint i = index;
-       while (i > 0) 
-       {
-           f /= 2.0f;
-           result += f * (i % 2);
-           i = i / 2;
-       }
+	uint index = id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION + _Frame;
+	float result = 0.0f;
+	float  f = 1;
+	uint i = index;
 
+	while (i > 0) {
+		f /= 2.0f;
+		result += f * (i % 2);
+		i = i / 2;
+	}
 
-       return result;
+	return result;
 }
 
+
+//This doesn't seem like halton
 uint GetHalton(uint3 id){
-	uint seed = id.x + id.y * X_RESOLUTION + _Frame * X_RESOLUTION * Y_RESOLUTION;
+	uint seed = (id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION) + _Frame;
     seed = (seed ^ 61) ^ (seed >> 16);
     seed *= 9;
     seed = seed ^ (seed >> 4);
     seed *= 0x27d4eb2d;
     seed = seed ^ (seed >> 15);
-    return seed;
-}
-
-uint GetXor(uint rng_state){
-    // Xorshift algorithm from George Marsaglia's paper
-    rng_state ^= (rng_state << 13);
-    rng_state ^= (rng_state >> 17);
-    rng_state ^= (rng_state << 5);
-    return rng_state;
+    return seed / UINT_MAX;
 }
 
 float Linear01Depth(float z){
@@ -237,7 +226,7 @@ inline float3 GetRawFrustumFromWorld(float4 worldPosRaw){
 	return frustum.xyz;
 }
 
-inline float3 GetUVFromFrustum(float3 frustum, float3 jitter){
+inline float3 GetUVFromFrustum(float3 frustum, float jitter){
 	//Only now clamp frustum so GetFrustum can be unclamped
 	frustum.z = Linear01Depth(frustum.z);
 	frustum.z = pow(saturate(frustum.z), 1.0f / DEPTH_POW);
@@ -246,16 +235,14 @@ inline float3 GetUVFromFrustum(float3 frustum, float3 jitter){
 	frustum.y = (frustum.y + 1.0f) * 0.5f;
 
 	//Unjitter
-	frustum.x -= (jitter.x - 0.5f) / (X_RESOLUTION - 1);
-	frustum.y -= (jitter.y - 0.5f) / (Y_RESOLUTION - 1);
-	frustum.z -= (jitter.z - 0.5f) / (Z_RESOLUTION - 1);
+	frustum.z -= (jitter - 0.5f) / (Z_RESOLUTION - 1);
 
 	return frustum;
 }
 
 inline float4 GetFrustumFromID(uint3 id, float jitter){
-	float xUv = (id.x + jitter) / ((X_RESOLUTION) * 0.5f) - 1.0f;
-	float yUv = (id.y + jitter) / ((Y_RESOLUTION) * 0.5f) - 1.0f;
+	float xUv = (id.x + 0.5f) / ((X_RESOLUTION) * 0.5f) - 1.0f;
+	float yUv = (id.y + 0.5f) / ((Y_RESOLUTION) * 0.5f) - 1.0f;
 	float zUv = (id.z + jitter) / (Z_RESOLUTION);
 	//for linear depth sample
 	zUv = pow(zUv, DEPTH_POW);
@@ -288,11 +275,11 @@ inline float GetFaloff(float3 dd, float range){
 
 
 //64 threads, blocks of 4x4x4
-[numthreads(4, 4, 4)] void FogDensity(uint3 id : SV_DispatchThreadID){
-	float jitter = (GetHalton(id.x + id.y * X_RESOLUTION + _Frame * X_RESOLUTION * Y_RESOLUTION) / UINT_MAX - 0.5f) * _TemporalStrength + 0.5f;
-
-
+[numthreads(4, 4, 4)]
+void FogDensity(uint3 id : SV_DispatchThreadID){
+	float jitter = (GetHalton2(id) - 0.5f) * _TemporalStrength + 0.5f;
 	float4 frustCoord = GetFrustumFromID(id, jitter);
+	
 	float4 worldPosRaw = mul(_VAPOR_I_VP, frustCoord);
 	float3 worldPos = worldPosRaw.xyz / worldPosRaw.w;
 	
@@ -303,7 +290,6 @@ inline float GetFaloff(float3 dd, float range){
 	float4 fogPropertiesLight = _EmissivePhase;
 	
 	//Now add cells for local volumes HERE
-	
 
 	float3 fogLight = _AmbientLight.rgb;
 	{
@@ -317,8 +303,6 @@ inline float GetFaloff(float3 dd, float range){
 
 		{
 			float cosTheta = dot(direction, _LightDirection.xyz);
-
-			//TODO: Better scatter here
 			float scatter = GetScatterHenyey(cosTheta, fogPropertiesLight.a);
 			fogLight += scatter * _LightColor.rgb * shadow;
 		}
@@ -371,34 +355,21 @@ inline float GetFaloff(float3 dd, float range){
 		}
 	}
 
-	float noise = GetNoiseAtPos(worldPos);
-
 	//Write incoming light * albedo, extinction
-	float4 lightWrite = float4(fogLight * fogPropertiesScatter.rgb + fogPropertiesLight.rgb, fogPropertiesScatter.a * exp(-noise));
 
+	//Exp makes noise a bit more defined
+	float noise = exp(-GetNoiseAtPos(worldPos));
+	float4 lightWrite = float4(fogLight * fogPropertiesScatter.rgb + fogPropertiesLight.rgb, fogPropertiesScatter.a * noise);
 
 	//Reprojection
 	float3 frustum = GetRawFrustumFromWorld(worldPosRaw);
+	
+	float3 boxf = float3(frustum.x * 0.5f + 0.5f, frustum.y * 0.5f + 0.5f, frustum.z + 0.01f);
+	float expWeight = any(boxf - saturate(boxf)) ? 1.0f : _ExponentialWeight;
 
+	float3 oldUv = GetUVFromFrustum(frustum, jitter);
+	oldUv.z -= (jitter * 2.0f - 1.0f) / Z_RESOLUTION * _ReprojectionSmoothing;
 
-	//TODO: Must be a better way...
-	[branch]
-	if (
-	abs(frustum.x) <= 1.0f && 
-	abs(frustum.y) <= 1.0f &&
-	frustum.z < 1.0f && frustum.z > -0.01f){
-		float3 oldUv = GetUVFromFrustum(frustum, jitter);
-		oldUv -= (jitter * 2.0f - 1.0f) / float3(X_RESOLUTION, Y_RESOLUTION, Z_RESOLUTION) * _ReprojectionSmoothing;
-
-
-		float4 oldVal = _DensityTextureOld.SampleLevel(MyLinearClampSampler, oldUv, 0.0f);
-		
-		float difLen = length(lightWrite - oldVal);
-		//float weight = _ExponentialWeight * 1.0f / (1.0f + difLen);
-		
-		//TODO: Neighbourhood clamping
-		_DensityTextureWrite[id] = _ExponentialWeight * lightWrite + (1.0f - _ExponentialWeight) * oldVal;
-	}else{
-		_DensityTextureWrite[id] = lightWrite;
-	}
+	float4 oldVal = _DensityTextureOld.SampleLevel(MyLinearClampSampler, oldUv, 0.0f);
+	_DensityTextureWrite[id] = expWeight * lightWrite + (1.0f - expWeight) * oldVal;
 }

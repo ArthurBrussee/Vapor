@@ -20,11 +20,8 @@
 				Texture2D<float> _MainTex;
 				SamplerState sampler_MainTex;
 
-	//sampler2D _MainTex;
-
 				float4 frag(v2f IN) : COLOR{
 					//float c = _MainTex.Sample(sampler_MainTex, IN.uv).r;
-					//float c = tex2D(_MainTex, IN.uv).r;
 					//return c;
 
 					float4 accum = 0.0f;

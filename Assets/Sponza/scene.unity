@@ -152,28 +152,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!84 &729642656
-RenderTexture:
-  m_ObjectHideFlags: 0
-  m_PrefabParentObject: {fileID: 0}
-  m_PrefabInternal: {fileID: 0}
-  m_Name: VaporShadowMap
-  m_ImageContentsHash:
-    serializedVersion: 2
-    Hash: 00000000000000000000000000000000
-  m_Width: 2048
-  m_Height: 2048
-  m_AntiAliasing: 1
-  m_DepthFormat: 0
-  m_ColorFormat: 14
-  m_MipMap: 0
-  m_GenerateMips: 1
-  m_SRGB: 1
-  m_TextureSettings:
-    m_FilterMode: 1
-    m_Aniso: 1
-    m_MipBias: 0
-    m_WrapMode: 1
 --- !u!1 &869934795
 GameObject:
   m_ObjectHideFlags: 0
@@ -250,7 +228,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FogScatterIntensity: 1
   ShadowBlurSize: 0
-  ShadowMap: {fileID: 729642656}
+  ShadowMap: {fileID: 929191732}
+--- !u!84 &929191732
+RenderTexture:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_Name: VaporShadowMap
+  m_ImageContentsHash:
+    serializedVersion: 2
+    Hash: 00000000000000000000000000000000
+  m_Width: 2048
+  m_Height: 2048
+  m_AntiAliasing: 1
+  m_DepthFormat: 0
+  m_ColorFormat: 14
+  m_MipMap: 0
+  m_GenerateMips: 1
+  m_SRGB: 1
+  m_TextureSettings:
+    m_FilterMode: 1
+    m_Aniso: 1
+    m_MipBias: 0
+    m_WrapMode: 1
 --- !u!1 &1113062300
 GameObject:
   m_ObjectHideFlags: 0
@@ -332,13 +332,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1113062300}
-  m_LocalRotation: {x: 0.033375513, y: -0.7549646, z: 0.03853401, w: 0.65378106}
-  m_LocalPosition: {x: 9.834, y: 0, z: 0.147}
+  m_LocalRotation: {x: 0.049098037, y: -0.6939048, z: 0.021444924, w: 0.71807086}
+  m_LocalPosition: {x: 13.663, y: 1.762, z: -0.917}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 5.8441997, y: -98.2165, z: -0.00049999997}
+  m_LocalEulerAnglesHint: {x: 5.71, y: -88.201004, z: -2.088}
 --- !u!114 &1113062306
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -350,8 +350,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2a7e54b4a14f69488bbdbed50a0eb85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Albedo: {r: 0.44117647, g: 0.44117647, b: 0.44117647, a: 1}
-  Extinction: 2.75
+  Albedo: {r: 1, g: 1, b: 1, a: 1}
+  Extinction: 0.05
   TemporalStrength: 1
   Phase: 0.772
   Emissive: {r: 0, g: 0, b: 0, a: 1}
@@ -370,7 +370,7 @@ MonoBehaviour:
     Seed: -1
     ScrollSpeed: {x: -0.93, y: 0.7, z: 0.49}
     Scale: {x: 0.4, y: 0.3, z: 0.3}
-    Strength: 9.43
+    Strength: 0
   m_secondaryLayer:
     Frequency: 5
     Persistence: 0.97
@@ -379,7 +379,7 @@ MonoBehaviour:
     Seed: -1
     ScrollSpeed: {x: 0.82, y: -1.26, z: 1}
     Scale: {x: 0.5, y: 0.5, z: 0.5}
-    Strength: 7.26
+    Strength: 0
   m_detailLayer:
     Frequency: 5
     Persistence: 0.97
@@ -388,7 +388,7 @@ MonoBehaviour:
     Seed: -1
     ScrollSpeed: {x: 0.23, y: 0.7, z: 0.46}
     Scale: {x: 1, y: 1, z: 1}
-    Strength: 4.07
+    Strength: 0
 --- !u!1001 &1377682628
 Prefab:
   m_ObjectHideFlags: 0

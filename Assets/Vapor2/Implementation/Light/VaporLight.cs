@@ -1,8 +1,6 @@
 ﻿using System;
 using UnityEngine;
 using UnityEngine.Rendering;
-using Object = UnityEngine.Object;
-
 
 namespace Vapor {
 	public struct VaporPointLight {
@@ -23,17 +21,14 @@ namespace Vapor {
 
 	[ExecuteInEditMode]
 	public class VaporLight : MonoBehaviour {
-		private static Material s_shadowBlurMaterial;
-		private static Material s_screenShadowMaterial;
-		private static Mesh s_quadMesh;
-
 		public float FogScatterIntensity = 1.0f;
+
+		//TODO: Add some culling in here.
 
 		//TODO: Handle change at runtime
 		[Range(0.0f, 2.0f)] public float ShadowBlurSize;
 
 		public RenderTexture ShadowMap;
-
 
 		private CommandBuffer m_cmdBuffer;
 		private CommandBuffer m_matrixCmdBuffer;
@@ -56,30 +51,40 @@ namespace Vapor {
 		}
 
 		private void OnEnable() {
-			//TODO: Remove this registration system
-			Register();
+			m_light = GetComponent<Light>();
+
+			Vapor2.Instance.Register(this);
+			CreateResources();
+
 		}
 
-		public void Register() {
-			if (Vapor2.Instance != null) {
-				m_light = GetComponent<Light>();
+		private void OnDisable() {
 
-				if (s_shadowBlurMaterial == null) {
-					s_shadowBlurMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowBlur"));
-					s_screenShadowMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowProperties"));
-
-					//TODO: Can we just get the friggin quad 
-					var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-					s_quadMesh = go.GetComponent<MeshFilter>().sharedMesh;
-					DestroyImmediate(go);
-				}
+			Vapor2.Instance.Deregister(this);
 
 
-				if (Vapor2.Instance.RegisterLight(this)) {
-					CreateResources();
-				}
+
+
+			m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
+			m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
+
+			if (m_cmdBuffer != null) {
+				m_cmdBuffer.Dispose();
+			}
+
+			if (m_matrixCmdBuffer != null) {
+				m_matrixCmdBuffer.Dispose();
+			}
+
+			if (ShadowMap != null) {
+				DestroyImmediate(ShadowMap);
+			}
+
+			if (MatrixTexture != null) {
+				DestroyImmediate(MatrixTexture);
 			}
 		}
+
 
 		private bool ShadowSupported() {
 			return m_light.type == LightType.Directional || m_light.type == LightType.Spot;
@@ -126,8 +131,8 @@ namespace Vapor {
 
 				
 				//Blur the shadow map. //TODO: Set offsets:
-				m_cmdBuffer.Blit((RenderTargetIdentifier)ShadowMap, blurTemp, s_shadowBlurMaterial, 0);
-				m_cmdBuffer.Blit(blurTemp, ShadowMap, s_shadowBlurMaterial, 1);
+				m_cmdBuffer.Blit((RenderTargetIdentifier)ShadowMap, blurTemp, Vapor2.ShadowBlurMaterial, 0);
+				m_cmdBuffer.Blit(blurTemp, ShadowMap, Vapor2.ShadowBlurMaterial, 1);
 				m_cmdBuffer.ReleaseTemporaryRT(blurTemp);
 
 				m_light.AddCommandBuffer(LightEvent.AfterShadowMap, m_cmdBuffer);
@@ -139,44 +144,11 @@ namespace Vapor {
 					m_matrixCmdBuffer.SetRenderTarget(MatrixTexture);
 
 					var pass = m_light.type == LightType.Directional ? 0 : 1;
-					m_matrixCmdBuffer.DrawMesh(s_quadMesh, Matrix4x4.identity, s_screenShadowMaterial, 0, pass);
+					m_matrixCmdBuffer.DrawMesh(Vapor2.QuadMesh, Matrix4x4.identity, Vapor2.ScreenShadowMaterial, 0, pass);
 					var ev = m_light.type == LightType.Directional ? LightEvent.AfterScreenspaceMask : LightEvent.AfterShadowMap;
 					m_light.AddCommandBuffer(ev, m_matrixCmdBuffer);
 				}
 			}
 		}
-
-		public void UpdateCommandBuffer() {
-			if (!HasShadow) {
-				return;
-			}
-		}
-
-
-		private void OnDisable() {
-			if (Vapor2.Instance != null) {
-				Vapor2.Instance.DeregisterLight(this);
-			}
-
-			m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
-			m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
-
-			if (m_cmdBuffer != null) {
-				m_cmdBuffer.Dispose();
-			}
-
-			if (m_matrixCmdBuffer != null) {
-				m_matrixCmdBuffer.Dispose();
-			}
-
-			if (ShadowMap != null) {
-				DestroyImmediate(ShadowMap);
-			}
-
-			if (MatrixTexture != null) {
-				DestroyImmediate(MatrixTexture);
-			}
-		}
 	}
-
 }
