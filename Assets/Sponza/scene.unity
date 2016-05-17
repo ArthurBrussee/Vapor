@@ -23,7 +23,7 @@ RenderSettings:
   m_AmbientSkyColor: {r: 0.106, g: 0.1135, b: 0.1295, a: 0.5}
   m_AmbientEquatorColor: {r: 0.057, g: 0.0625, b: 0.0665, a: 0.5}
   m_AmbientGroundColor: {r: 0.0235, g: 0.0215, b: 0.0175, a: 0.5}
-  m_AmbientIntensity: 0.5
+  m_AmbientIntensity: 5
   m_AmbientMode: 0
   m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
   m_HaloStrength: 0.5
@@ -34,10 +34,10 @@ RenderSettings:
   m_DefaultReflectionMode: 0
   m_DefaultReflectionResolution: 128
   m_ReflectionBounces: 1
-  m_ReflectionIntensity: 0.5
+  m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 0}
-  m_IndirectSpecularColor: {r: 0.021021456, g: 0.025691368, b: 0.034356225, a: 0.5}
+  m_IndirectSpecularColor: {r: 0.04204291, g: 0.051382735, b: 0.06871245, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
@@ -185,7 +185,7 @@ Light:
   m_CookieSize: 10
   m_Shadows:
     m_Type: 2
-    m_Resolution: -1
+    m_Resolution: 3
     m_Strength: 1
     m_Bias: 0.05
     m_NormalBias: 0.4
@@ -208,13 +208,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 869934795}
-  m_LocalRotation: {x: 0.6692377, y: 0.3634445, z: -0.084965214, w: 0.6425029}
-  m_LocalPosition: {x: 0.721, y: 4.718, z: -1.248}
+  m_LocalRotation: {x: 0.5446498, y: 0.5509074, z: -0.4328382, w: 0.46098673}
+  m_LocalPosition: {x: 0, y: -0.007, z: 0.405}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: 67.16, y: 474.167, z: 436.91}
+  m_LocalEulerAnglesHint: {x: 101.76999, y: -10.049988, z: -98.81201}
 --- !u!114 &869934798
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -228,8 +228,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   FogScatterIntensity: 1
   ShadowBlurSize: 0
-  ShadowMap: {fileID: 929191732}
---- !u!84 &929191732
+  ShadowMap: {fileID: 880786036}
+--- !u!84 &880786036
 RenderTexture:
   m_ObjectHideFlags: 0
   m_PrefabParentObject: {fileID: 0}
@@ -332,13 +332,13 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1113062300}
-  m_LocalRotation: {x: 0.049098037, y: -0.6939048, z: 0.021444924, w: 0.71807086}
-  m_LocalPosition: {x: 13.663, y: 1.762, z: -0.917}
+  m_LocalRotation: {x: 0.03059123, y: -0.71596736, z: 0.0025428706, w: 0.6974586}
+  m_LocalPosition: {x: 12.819, y: 1.143, z: 0.024}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 5.71, y: -88.201004, z: -2.088}
+  m_LocalEulerAnglesHint: {x: 2.628, y: -91.508, z: -2.242}
 --- !u!114 &1113062306
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -350,16 +350,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2a7e54b4a14f69488bbdbed50a0eb85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Albedo: {r: 1, g: 1, b: 1, a: 1}
+  Albedo: {r: 0.3897059, g: 0.3897059, b: 0.3897059, a: 1}
   Extinction: 0.05
   TemporalStrength: 1
-  Phase: 0.772
+  Phase: 0.621
   Emissive: {r: 0, g: 0, b: 0, a: 1}
-  AmbientLight: {r: 0.16911763, g: 0.16911763, b: 0.16911763, a: 1}
-  BlurSize: 1
+  AmbientLight: {r: 0.32363755, g: 0.54515415, b: 0.60294116, a: 1}
+  BlurSize: 0
   AveragingSpeed: 0.1
-  ShadowHardness: 70
-  ReprojectionSmoothing: 0.075
+  ShadowHardness: 20.8
   ShadowBias: 0.05
   SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
   m_baseLayer:

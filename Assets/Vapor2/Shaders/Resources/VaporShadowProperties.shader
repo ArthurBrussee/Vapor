@@ -6,7 +6,7 @@ Shader "Hidden/Vapor/ShadowProperties" {
 		_MainTex("", any) = "" {}
 	}
 
-		CGINCLUDE
+	CGINCLUDE
 	#include "UnityCG.cginc"
 	#include "VaporCommon.cginc"
 	
@@ -15,34 +15,32 @@ Shader "Hidden/Vapor/ShadowProperties" {
 	// Configuration
 	sampler2D _MainTex;
 
+	RWStructuredBuffer<float4x4> _MatrixBuf : register(u1);
+	RWStructuredBuffer<float4> _LightSplits : register(u2);
+
+	v2f vert_vapor_fs_buf(appdata v)
+	{
+		v2f o;
+		//hack to make quad draw fullscreen - just convert UV into n. device coordinates
+		o.pos = float4(float2(v.texcoord.x, 1.0f - v.texcoord.y) * 2.0f - 1.0f, 0.0f, 1.0f);
+		o.uv = v.texcoord;
+		return o;
+	}
 
 
-	fixed4 frag(v2f i) : SV_Target{
-		uint index = floor(i.uv.x * 4.0f);
-		uint y = floor(i.uv.y * 5.0f);
+	float4 frag(v2f i) : SV_Target{
+		_MatrixBuf[0] = unity_WorldToShadow[0];
+		_MatrixBuf[1] = unity_WorldToShadow[1];
+		_MatrixBuf[2] = unity_WorldToShadow[2];
+		_MatrixBuf[3] = unity_WorldToShadow[3];
 
-		if (y < 4) {
-			return unity_WorldToShadow[y][index];
-		}
+		_LightSplits[0] = _LightSplitsFar;
 
-		if (y == 4) {
-			if (index == 0) {
-				return _LightSplitsNear;
-			}
-
-			if (index == 1) {
-				return _LightSplitsFar;
-			}
-
-			if (index == 2) {
-				return _LightShadowData;
-			}
-		}
 		return 0.0f;
 	}
 	
 	//Spot lights only need VP matrix
-	fixed4 frag_spot(v2f i) : SV_Target{
+	float4 frag_spot(v2f i) : SV_Target{
 		uint index = floor(i.uv.x * 4.0f);
 		return UNITY_MATRIX_VP[index];
 	}
@@ -56,21 +54,12 @@ Shader "Hidden/Vapor/ShadowProperties" {
 			ZWrite Off ZTest Always Cull Off
 
 			CGPROGRAM
-				#pragma vertex vert_vapor_fs
+				#pragma vertex vert_vapor_fs_buf
 				#pragma fragment frag
 
 			ENDCG
 		}
 
-		//Pass for spot light properties
-		Pass{
-			ZWrite Off ZTest Always Cull Off
-
-			CGPROGRAM
-				#pragma vertex vert_vapor_fs
-				#pragma fragment frag_spot
-			ENDCG
-		}
 	}
 
 	Fallback Off

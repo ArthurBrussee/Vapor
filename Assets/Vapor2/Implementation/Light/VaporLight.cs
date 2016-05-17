@@ -1,5 +1,4 @@
-﻿using System;
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Vapor {
@@ -30,13 +29,13 @@ namespace Vapor {
 
 		public RenderTexture ShadowMap;
 
-		private CommandBuffer m_cmdBuffer;
+		private CommandBuffer m_shadowCmd;
 		private CommandBuffer m_matrixCmdBuffer;
+		public ComputeBuffer MatrixBuffer;
+		public ComputeBuffer LightSplitsBuffer;
 
-		[NonSerialized] public RenderTexture MatrixTexture;
 
 		private Light m_light;
-
 
 		public Light Light {
 			get { return m_light; }
@@ -44,45 +43,6 @@ namespace Vapor {
 
 		public LightType LightType {
 			get { return m_light.type; }
-		}
-
-		public bool HasMatrixTex {
-			get { return m_light.type == LightType.Directional || m_light.type == LightType.Spot; }
-		}
-
-		private void OnEnable() {
-			m_light = GetComponent<Light>();
-
-			Vapor2.Instance.Register(this);
-			CreateResources();
-
-		}
-
-		private void OnDisable() {
-
-			Vapor2.Instance.Deregister(this);
-
-
-
-
-			m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
-			m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
-
-			if (m_cmdBuffer != null) {
-				m_cmdBuffer.Dispose();
-			}
-
-			if (m_matrixCmdBuffer != null) {
-				m_matrixCmdBuffer.Dispose();
-			}
-
-			if (ShadowMap != null) {
-				DestroyImmediate(ShadowMap);
-			}
-
-			if (MatrixTexture != null) {
-				DestroyImmediate(MatrixTexture);
-			}
 		}
 
 
@@ -102,53 +62,87 @@ namespace Vapor {
 			}
 		}
 
-		//TODO: Better formula here.. this assumes 4K
-		private int GetShadowMapResolution() {
-			return 2048;
-		}
 
-		private void CreateResources() {
+		private void OnEnable() {
+			m_light = GetComponent<Light>();
+			Vapor2.Instance.Register(this);
+
+
 			if (HasShadow) {
+
 				m_light.RemoveAllCommandBuffers();
 
 				int res = GetShadowMapResolution();
 
-				ShadowMap = new RenderTexture(res, res, 0, RenderTextureFormat.RFloat);
-				ShadowMap.name = "VaporShadowMap";
+				ShadowMap = new RenderTexture(res, res, 0, RenderTextureFormat.RFloat) {name = "VaporShadowMap"};
+
 
 				RenderTargetIdentifier shadowId = BuiltinRenderTextureType.CurrentActive;
-				
-				m_cmdBuffer = new CommandBuffer();
-
 				int blurTemp = Shader.PropertyToID("_ShadowBlurTemp");
 
+				m_shadowCmd = new CommandBuffer();
+
 				//Create shadow command buffer
-				m_cmdBuffer.SetShadowSamplingMode(shadowId, ShadowSamplingMode.RawDepth);
-				m_cmdBuffer.GetTemporaryRT(blurTemp, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.RFloat);
+				m_shadowCmd.SetShadowSamplingMode(shadowId, ShadowSamplingMode.RawDepth);
+				m_shadowCmd.GetTemporaryRT(blurTemp, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.RFloat);
 
-				m_cmdBuffer.Blit(shadowId, blurTemp);
-				m_cmdBuffer.Blit(blurTemp, ShadowMap, Vapor2.ShadowFilterMaterial);
+				m_shadowCmd.Blit(shadowId, blurTemp);
+				m_shadowCmd.Blit(blurTemp, ShadowMap, Vapor2.ShadowFilterMaterial);
 
-				
 				//Blur the shadow map. //TODO: Set offsets:
-				m_cmdBuffer.Blit((RenderTargetIdentifier)ShadowMap, blurTemp, Vapor2.ShadowBlurMaterial, 0);
-				m_cmdBuffer.Blit(blurTemp, ShadowMap, Vapor2.ShadowBlurMaterial, 1);
-				m_cmdBuffer.ReleaseTemporaryRT(blurTemp);
+				//m_shadowCmd.Blit((RenderTargetIdentifier) ShadowMap, blurTemp, Vapor2.ShadowBlurMaterial, 0);
+				//m_shadowCmd.Blit(blurTemp, ShadowMap, Vapor2.ShadowBlurMaterial, 1);
+				//m_shadowCmd.ReleaseTemporaryRT(blurTemp);
 
-				m_light.AddCommandBuffer(LightEvent.AfterShadowMap, m_cmdBuffer);
+				m_light.AddCommandBuffer(LightEvent.AfterShadowMap, m_shadowCmd);
 
-				if (HasMatrixTex) {
-					MatrixTexture = new RenderTexture(4, 5, 0, RenderTextureFormat.ARGBFloat);
+
+				if (m_light.type == LightType.Directional) {
+					MatrixBuffer = new ComputeBuffer(4, 4 * 16);
+					LightSplitsBuffer = new ComputeBuffer(1, 4 * 4);
+
+					int matrixTemp = Shader.PropertyToID("_MatrixTemp");
 
 					m_matrixCmdBuffer = new CommandBuffer();
-					m_matrixCmdBuffer.SetRenderTarget(MatrixTexture);
 
-					var pass = m_light.type == LightType.Directional ? 0 : 1;
-					m_matrixCmdBuffer.DrawMesh(Vapor2.QuadMesh, Matrix4x4.identity, Vapor2.ScreenShadowMaterial, 0, pass);
-					var ev = m_light.type == LightType.Directional ? LightEvent.AfterScreenspaceMask : LightEvent.AfterShadowMap;
-					m_light.AddCommandBuffer(ev, m_matrixCmdBuffer);
+					m_matrixCmdBuffer.GetTemporaryRT(matrixTemp, 1, 1, 0, FilterMode.Bilinear, RenderTextureFormat.ARGB32);
+					m_matrixCmdBuffer.SetRenderTarget(matrixTemp);
+
+					m_matrixCmdBuffer.DrawMesh(Vapor2.QuadMesh, Matrix4x4.identity, Vapor2.ScreenShadowMaterial, 0);
+	
+					m_matrixCmdBuffer.ReleaseTemporaryRT(matrixTemp);
+					m_light.AddCommandBuffer(LightEvent.AfterScreenspaceMask, m_matrixCmdBuffer);
 				}
 			}
+		}
+
+		private void OnDisable() {
+			Vapor2.Instance.Deregister(this);
+
+
+
+			if (HasShadow) {
+				m_shadowCmd.Dispose();
+
+
+				if (LightType == LightType.Directional) {
+					m_matrixCmdBuffer.Dispose();
+					MatrixBuffer.Dispose();
+					LightSplitsBuffer.Dispose();
+				}
+
+
+				m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
+				m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
+				
+				DestroyImmediate(ShadowMap);
+			}
+		}
+		
+
+		//TODO: Better formula here.. this assumes 4K
+		private int GetShadowMapResolution() {
+			return 2048;
 		}
 	}
 }

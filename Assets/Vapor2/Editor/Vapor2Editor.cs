@@ -176,11 +176,9 @@ namespace Vapor {
             PropertyField("ShadowHardness");
             PropertyField("ShadowBias");
             PropertyField("AveragingSpeed");
-            PropertyField("ReprojectionSmoothing");
             PropertyField("TemporalStrength");
             PropertyField("BlurSize");
 			
-            PropertyField("SpotCookie");
 
             var tab = VaporTabGroup.GetTabGroup();
 			GUILayout.Label("Noise", EditorStyles.boldLabel);

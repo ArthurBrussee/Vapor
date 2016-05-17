@@ -72,16 +72,11 @@ SamplerState MyLinearRepeatSampler;
 SamplerState MyLinearClampSampler;
 
 //Shadow matrices
-float4x4 unity_World2Shadow0;
-float4x4 unity_World2Shadow1;
-float4x4 unity_World2Shadow2;
-float4x4 unity_World2Shadow3;
-
-float4 _LightSplitsFar;
+StructuredBuffer<float4x4> _MatrixBuf;
+StructuredBuffer<float4> _LightSplits;
 
 float _ShadowSoft;
 float _ShadowBias;
-
 
 //Cascade clamp. 
 float4 _Range;
@@ -140,48 +135,44 @@ inline float GetShadow(float3 wpos, float z){
 	float4 multPos = float4(wpos, 1.0f);
 	float4 coords;
 
-	//TODO: Hook up conditional for _if_ cascade
+	float4 splits = _LightSplits[0];
+
 #if SHADOW_CASCADE
 	[branch]
-	if (z < _LightSplitsFar.x){
-		coords = mul(unity_World2Shadow0, multPos);
+	if (z < splits.x){
+		coords = mul(_MatrixBuf[0], multPos);
 		coords.xy /= coords.w;
 		
 		coords.x = min(coords.x, _Range.x);
 		coords.y = min(coords.y, _Range.y);
-	}else if (z < _LightSplitsFar.y){
-		coords = mul(unity_World2Shadow1, multPos);
+	}else if (z < splits.y){
+		coords = mul(_MatrixBuf[1], multPos);
 		coords.xy /= coords.w;
 
 		coords.x = max(coords.x, _Range.x);
 		coords.y = min(coords.y, _Range.y);
-	}else if (z < _LightSplitsFar.z){
-		coords = mul(unity_World2Shadow2, multPos);
+	}else if (z < splits.z){
+		coords = mul(_MatrixBuf[2], multPos);
 		coords.xy /= coords.w;
 
 		coords.x = min(coords.x, _Range.x);
 		coords.y = max(coords.y, _Range.y);
-	}else if (z < _LightSplitsFar.w){
-		coords = mul(unity_World2Shadow3, multPos);
+	}else if (z < splits.w){
+		coords = mul(_MatrixBuf[3], multPos);
 		coords.xy /= coords.w;
 
 		coords.x = max(coords.x, _Range.x);
 		coords.y = max(coords.y, _Range.y);
 	}
 #else
-	coords = mul(unity_World2Shadow0, multPos);
+	coords = mul(_MatrixBuf[0], multPos);
 	coords.xy /= coords.w;
 #endif
 
-
-
-	float depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
-
-	return saturate(depth * exp(-_ShadowSoft * saturate(coords.z + _ShadowBias)));
-	
-	//return depth >= saturate(coords.z +_ShadowBias) ? 1.0f : 0.0f;
-	
 	//TODO: Volumetric shadow maps would be so damn sexy
+	float depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
+	return saturate(depth * exp(-_ShadowSoft * saturate(coords.z + _ShadowBias)));
+	//return depth >= saturate(coords.z +_ShadowBias) ? 1.0f : 0.0f;
 }
 
 float GetScatterHenyey(float cosTheta, float g){
@@ -219,23 +210,16 @@ void Scatter(uint3 id : SV_DispatchThreadID){
 	ScatterMain(id);
 }
 
-//Reprojection code
-inline float3 GetRawFrustumFromWorld(float4 worldPosRaw){
-	float4 frustum = mul(_VAPOR_VP_OLD, worldPosRaw); //to frustum coords [-1, 1] xy, [0, 1] z
-	frustum.xyz /= frustum.w; //normalize projective coordinates
-	return frustum.xyz;
-}
 
 inline float3 GetUVFromFrustum(float3 frustum, float jitter){
-	//Only now clamp frustum so GetFrustum can be unclamped
-	frustum.z = Linear01Depth(frustum.z);
-	frustum.z = pow(saturate(frustum.z), 1.0f / DEPTH_POW);
-
 	frustum.x = (frustum.x + 1.0f) * 0.5f;
 	frustum.y = (frustum.y + 1.0f) * 0.5f;
 
-	//Unjitter
-	frustum.z -= (jitter - 0.5f) / (Z_RESOLUTION - 1);
+	
+	frustum.z = Linear01Depth(frustum.z);
+	frustum.z = pow(saturate(frustum.z), 1.0f / DEPTH_POW);
+	
+	frustum.z -= (jitter - 0.5f) / (Z_RESOLUTION);
 
 	return frustum;
 }
@@ -362,14 +346,17 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	float4 lightWrite = float4(fogLight * fogPropertiesScatter.rgb + fogPropertiesLight.rgb, fogPropertiesScatter.a * noise);
 
 	//Reprojection
-	float3 frustum = GetRawFrustumFromWorld(worldPosRaw);
-	
-	float3 boxf = float3(frustum.x * 0.5f + 0.5f, frustum.y * 0.5f + 0.5f, frustum.z + 0.01f);
+	float4 frustum = mul(_VAPOR_VP_OLD, worldPosRaw); //to frustum coords [-1, 1] xy, [0, 1] z
+	frustum.xyz /= frustum.w; //normalize projective coordinates
+
+	const float epsX = 0.5f - 1.0f / X_RESOLUTION;
+	const float epsY = 0.5f - 1.0f / Y_RESOLUTION;
+
+	float3 boxf = float3(frustum.x * epsX + 0.5f, frustum.y * epsY + 0.5f, frustum.z + 0.01f);
 	float expWeight = any(boxf - saturate(boxf)) ? 1.0f : _ExponentialWeight;
-
-	float3 oldUv = GetUVFromFrustum(frustum, jitter);
-	oldUv.z -= (jitter * 2.0f - 1.0f) / Z_RESOLUTION * _ReprojectionSmoothing;
-
+	
+	float3 oldUv = GetUVFromFrustum(frustum.xyz, jitter);
 	float4 oldVal = _DensityTextureOld.SampleLevel(MyLinearClampSampler, oldUv, 0.0f);
+
 	_DensityTextureWrite[id] = expWeight * lightWrite + (1.0f - expWeight) * oldVal;
 }
