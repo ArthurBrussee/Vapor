@@ -1,5 +1,9 @@
 ﻿#pragma kernel Scatter
 #pragma kernel FogDensity SCATTER_SHADOW SHADOW_CASCADE
+#pragma kernel LightDirectional 
+#pragma kernel LightSpot
+#pragma kernel LightPoint
+#pragma kernel LightClear
 
 #define ONE_OVER_4_PI (1.0f / 4.0f * 3.141596f)
 #define DEPTH_POW 6
@@ -34,6 +38,8 @@ float _ExponentialWeight;
 RWTexture3D<half4> _ScatterTexture;
 RWTexture3D<half4> _DensityTextureWrite;
 
+RWTexture3D<half> _LightAccum;
+
 Texture3D<half4> _DensityTexture;
 Texture3D<half4> _DensityTextureOld;
 
@@ -53,9 +59,7 @@ DECLARE_NOISE_LAYER(2)
 //Main Light data
 float4 _LightColor;
 float4 _CameraPos;
-
-//Directional light data
-float4 _LightDirection;
+float4 _LightPosRange;
 Texture2D<float> _ShadowMapTexture;
 
 //Spot light data
@@ -211,25 +215,25 @@ void Scatter(uint3 id : SV_DispatchThreadID){
 }
 
 
-inline float3 GetUVFromFrustum(float3 frustum, float jitter){
+inline float3 GetUVFromFrustum(float3 frustum){
 	frustum.x = (frustum.x + 1.0f) * 0.5f;
 	frustum.y = (frustum.y + 1.0f) * 0.5f;
 
 	
 	frustum.z = Linear01Depth(frustum.z);
 	frustum.z = pow(saturate(frustum.z), 1.0f / DEPTH_POW);
-	
-	frustum.z -= (jitter - 0.5f) / (Z_RESOLUTION);
 
 	return frustum;
 }
 
-inline float4 GetFrustumFromID(uint3 id, float jitter){
+inline float4 GetFrustumFromID(uint3 id, float jitter, out float zLocal){
 	float xUv = (id.x + 0.5f) / ((X_RESOLUTION) * 0.5f) - 1.0f;
 	float yUv = (id.y + 0.5f) / ((Y_RESOLUTION) * 0.5f) - 1.0f;
 	float zUv = (id.z + jitter) / (Z_RESOLUTION);
 	//for linear depth sample
 	zUv = pow(zUv, DEPTH_POW);
+	zLocal = zUv;
+	
 	zUv = Linear01DepthInv(zUv);
 	return float4(xUv, yUv, zUv, 1);
 }
@@ -257,25 +261,39 @@ inline float GetFaloff(float3 dd, float range){
 	return faloff;
 }
 
+float3 GetWorldPos(uint3 id, out float zLocal) {
+	float jitter = (GetHalton2(id) - 0.5f) * _TemporalStrength + 0.5f;
+
+	float zUv;
+	float4 frustCoord = GetFrustumFromID(id, jitter, zUv);
+	zLocal = _PlaneSettings.x + _PlaneSettings.y * zUv;
+
+	float4 worldPosRaw = mul(_VAPOR_I_VP, frustCoord);
+	worldPosRaw.xyz /= worldPosRaw.w;
+	worldPosRaw.w = 1.0f;
+
+	return worldPosRaw.xyz;
+
+	
+}
+
 
 //64 threads, blocks of 4x4x4
 [numthreads(4, 4, 4)]
 void FogDensity(uint3 id : SV_DispatchThreadID){
-	float jitter = (GetHalton2(id) - 0.5f) * _TemporalStrength + 0.5f;
-	float4 frustCoord = GetFrustumFromID(id, jitter);
-	
-	float4 worldPosRaw = mul(_VAPOR_I_VP, frustCoord);
-	float3 worldPos = worldPosRaw.xyz / worldPosRaw.w;
-	
-	float zLocal = _PlaneSettings.x + _PlaneSettings.y * pow((id.z + jitter) / Z_RESOLUTION, DEPTH_POW);
-
+	float zLocal;
+	float3 worldPos = GetWorldPos(id, zLocal);
 
 	float4 fogPropertiesScatter = _AlbedoExt;
 	float4 fogPropertiesLight = _EmissivePhase;
 	
 	//Now add cells for local volumes HERE
 
-	float3 fogLight = _AmbientLight.rgb;
+	uint3 accumId = id;
+	accumId.x *= 3;
+
+	float3 fogLight = _AmbientLight.rgb + float3(_LightAccum[accumId], _LightAccum[accumId + uint3(1, 0, 0)], _LightAccum[accumId + uint3(2, 0, 0)]);
+
 	{
 		#ifdef SCATTER_SHADOW
 			float shadow = GetShadow(worldPos, zLocal);
@@ -286,22 +304,17 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 		float3 direction = normalize(_CameraPos.xyz - worldPos);
 
 		{
-			float cosTheta = dot(direction, _LightDirection.xyz);
-			float scatter = GetScatterHenyey(cosTheta, fogPropertiesLight.a);
+			float cosTheta = dot(direction, _LightPosRange.xyz);
+			float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
 			fogLight += scatter * _LightColor.rgb * shadow;
 		}
 		
+
+		/*
 		//TODO: LIGHT PASS
 		{
 			for(uint l = 0; l < _PointLightCount; ++l){
-				PointLight light = _PointLightBuffer[l];
-				float3 dd = worldPos - light.PosRange.xyz;
-				float faloff = GetFaloff(dd, light.PosRange.w);
 
-				float cosTheta = dot(direction, normalize(dd));
-				float scatter = GetScatterHenyey(cosTheta, fogPropertiesLight.a);
-
-				fogLight += faloff * scatter * light.Intensity.rgb;
 			}
 		}
 
@@ -336,7 +349,7 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 					fogLight += faloff * scatter * light.Intensity.rgb * cookie.rgb * cookie.a;
 				}
 			}
-		}
+		}*/
 	}
 
 	//Write incoming light * albedo, extinction
@@ -346,7 +359,7 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	float4 lightWrite = float4(fogLight * fogPropertiesScatter.rgb + fogPropertiesLight.rgb, fogPropertiesScatter.a * noise);
 
 	//Reprojection
-	float4 frustum = mul(_VAPOR_VP_OLD, worldPosRaw); //to frustum coords [-1, 1] xy, [0, 1] z
+	float4 frustum = mul(_VAPOR_VP_OLD, float4(worldPos, 1.0f)); //to frustum coords [-1, 1] xy, [0, 1] z
 	frustum.xyz /= frustum.w; //normalize projective coordinates
 
 	const float epsX = 0.5f - 1.0f / X_RESOLUTION;
@@ -355,8 +368,51 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	float3 boxf = float3(frustum.x * epsX + 0.5f, frustum.y * epsY + 0.5f, frustum.z + 0.01f);
 	float expWeight = any(boxf - saturate(boxf)) ? 1.0f : _ExponentialWeight;
 	
-	float3 oldUv = GetUVFromFrustum(frustum.xyz, jitter);
+	float3 oldUv = GetUVFromFrustum(frustum.xyz);
 	float4 oldVal = _DensityTextureOld.SampleLevel(MyLinearClampSampler, oldUv, 0.0f);
 
 	_DensityTextureWrite[id] = expWeight * lightWrite + (1.0f - expWeight) * oldVal;
+}
+
+[numthreads(4, 4, 4)]
+void LightClear(uint3 id : SV_DispatchThreadID) {
+	_LightAccum[id] = 0;
+}
+
+/*
+[numthreads(4, 4, 4)]
+void LightDirectional(uint3 id : SV_DispatchThreadID) {
+
+}
+
+[numthreads(4, 4, 4)]
+void LightSpot(uint3 id : SV_DispatchThreadID) {
+
+}
+
+*/
+
+
+[numthreads(4, 4, 4)]
+void LightPoint(uint3 id : SV_DispatchThreadID) {
+	float zLocal;
+	float3 worldPos = GetWorldPos(id, zLocal);
+	float3 direction = normalize(_CameraPos.xyz - worldPos);
+
+
+	float3 dd = worldPos - _LightPosRange.xyz;
+	float faloff = GetFaloff(dd, _LightPosRange.w);
+
+	float cosTheta = dot(direction, normalize(dd));
+	float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
+
+
+	float3 ret = faloff * scatter * _LightColor.rgb;
+
+	id.x *= 3;
+
+
+	_LightAccum[id] += ret.r;
+	_LightAccum[id + uint3(1, 0, 0)] += ret.g;
+	_LightAccum[id + uint3(2, 0, 0)] += ret.b;
 }

@@ -5,17 +5,12 @@ using UnityEngine.Rendering;
 
 namespace Vapor {
 	[ExecuteInEditMode]
+//#if UNITY_5_4_OR_NEWER
+	//[ImageEffectAllowedInSceneView]
+//#endif
 	public class Vapor : MonoBehaviour {
-		private static Vapor s_instance;
-		public static Vapor Instance {
-			get {
-				if (s_instance == null) {
-					s_instance = FindObjectOfType<Vapor>();
-				}
 
-				return s_instance;
-			}
-		}
+		public static List<Vapor> ActiveVapors = new List<Vapor>();
 
 		private List<VaporLight> m_lights = new List<VaporLight>();
 
@@ -23,10 +18,13 @@ namespace Vapor {
 		private BoundingSphere[] m_spheres = new BoundingSphere[1024];
 
 		//Static resources
-		public static Material ShadowBlurMaterial;
+		//public Material ShadowBlurMaterial;
 		public static Material ScreenShadowMaterial;
 		public static Material ShadowFilterMaterial;
 		public static Mesh QuadMesh;
+
+		private Camera m_camera;
+
 
 		[Header("Global settings")] public Color Albedo = new Color(0.1f, 0.1f, 0.1f); //sig_s / sig_t
 		public float Extinction = 0.15f; //sig_t
@@ -63,10 +61,22 @@ namespace Vapor {
 
 		private RenderTexture m_densityTex;
 		private RenderTexture m_densityTexOld;
+
+
 		private RenderTexture m_scatterTex;
+		private RenderTexture m_lightTex;
+
+
+
 
 		private int m_scatterKernel;
 		private int m_densityKernel;
+
+		//private int m_lightDirKernel;
+		//private int m_lightSpotKernel;
+		private int m_lightPointKernel;
+		private int m_lightClearKernel;
+
 
 		private Material m_fogMat;
 
@@ -100,11 +110,38 @@ namespace Vapor {
 		}
 
 		private void OnEnable() {
+			ActiveVapors.Add(this);
+			m_camera = GetComponent<Camera>();
 			CreateResources();
 		}
 
+
+		private void OnDisable() {
+			DestroyImmediate(m_densityTex);
+			DestroyImmediate(m_scatterTex);
+
+			if (m_pointLightBuffer != null) {
+				m_pointLightBuffer.Dispose();
+			}
+
+			if (m_spotLightBuffer != null) {
+				m_spotLightBuffer.Dispose();
+			}
+
+			//Destroy all noises
+			m_baseLayer.Destroy();
+			m_secondaryLayer.Destroy();
+			m_detailLayer.Destroy();
+
+			m_cullGroup.Dispose();
+			m_cullGroup = null;
+
+			ActiveVapors.Remove(this);
+		}
+
+
 		private void CreateResources() {
-			ShadowBlurMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowBlur"));
+			//ShadowBlurMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowBlur"));
 			ScreenShadowMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowProperties"));
 			ShadowFilterMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowFilterESM"));
 
@@ -121,6 +158,11 @@ namespace Vapor {
 			m_vaporCompute = Resources.Load<ComputeShader>("VaporSim");
 			m_scatterKernel = m_vaporCompute.FindKernel("Scatter");
 			m_densityKernel = m_vaporCompute.FindKernel("FogDensity");
+			m_lightPointKernel = m_vaporCompute.FindKernel("LightPoint");
+			m_lightClearKernel = m_vaporCompute.FindKernel("LightClear");
+
+			//m_lightDirKernel = m_vaporCompute.FindKernel("LightDirectional");
+			//m_lightSpotKernel = m_vaporCompute.FindKernel("LightSpot");
 
 			m_fogMat = new Material(Shader.Find("Hidden/VaporPost"));
 
@@ -129,6 +171,8 @@ namespace Vapor {
 			CreateTexture(ref m_scatterTex);
 			CreateTexture(ref m_densityTex);
 			CreateTexture(ref m_densityTexOld);
+			CreateTexture(ref m_lightTex, RenderTextureFormat.RHalf, 3);
+
 
 			if (m_baseLayer.NeedsBuild() || m_secondaryLayer.NeedsBuild() || m_detailLayer.NeedsBuild()) {
 				BakeNoiseLayers();
@@ -155,7 +199,7 @@ namespace Vapor {
 			m_detailLayer.Bake();
 		}
 
-		private void CreateTexture(ref RenderTexture tex) {
+		private void CreateTexture(ref RenderTexture tex, RenderTextureFormat format = RenderTextureFormat.ARGBHalf, int widthMult = 1) {
 			if (tex != null) {
 				return;
 			}
@@ -164,7 +208,7 @@ namespace Vapor {
 				DestroyImmediate(tex);
 			}
 
-			tex = new RenderTexture(c_horizontalTextureRes, c_verticalTextureRes, 0, RenderTextureFormat.ARGBHalf) {
+			tex = new RenderTexture(c_horizontalTextureRes * widthMult, c_verticalTextureRes, 0, format) {
 				volumeDepth = c_volumeDepth,
 				dimension = TextureDimension.Tex3D,
 				enableRandomWrite = true,
@@ -198,105 +242,95 @@ namespace Vapor {
 			}
 		}
 
+
 		private void UpdateLightBind() {
-			//Globals
-			m_vaporCompute.SetFloat("_ShadowSoft", ShadowHardness);
-			m_vaporCompute.SetFloat("_ShadowBias", ShadowBias * 0.1f);
-
-			if (SpotCookie != null) {
-				m_vaporCompute.SetTexture(m_densityKernel, "_SpotCookie", SpotCookie);
-			}
-
-			ShadowFilterMaterial.SetFloat("_ShadowSoft", ShadowHardness);
+			//render lights into light texture
+			m_vaporCompute.SetTexture(m_lightClearKernel, "_LightAccum", m_lightTex);
+			m_vaporCompute.Dispatch(m_lightClearKernel, c_horizontalTextureRes / 4 * 3, c_verticalTextureRes / 4, c_volumeDepth / 4);
 
 			//Bind each light
-			int pointLightCount = 0;
-			int spotLightCount = 0;
-
 			for (int index = 0; index < m_lights.Count; index++) {
 				var vaporLight = m_lights[index];
 				var l = vaporLight.Light;
 
 				//Main fog light, special handling
 				if (vaporLight.LightType == LightType.Directional) {
-					m_vaporCompute.SetVector("_LightDirection", l.transform.forward);
-					m_vaporCompute.SetVector("_LightColor", l.color * l.intensity * vaporLight.FogScatterIntensity);
+					continue;
+				}
+				Vector4 posRange = l.transform.position;
+				posRange.w = 1.0f / (l.range * l.range);
 
-					if (vaporLight.HasShadow) {
-						m_vaporCompute.SetBuffer(m_densityKernel, "_MatrixBuf", vaporLight.MatrixBuffer);
-						m_vaporCompute.SetBuffer(m_densityKernel, "_LightSplits", vaporLight.LightSplitsBuffer);
-						m_vaporCompute.SetTexture(m_densityKernel, "_ShadowMapTexture", vaporLight.ShadowMap);
-					}
-					else {
-						m_vaporCompute.SetTexture(m_densityKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
-					}
+				m_vaporCompute.SetVector("_LightPosRange", posRange);
+				m_vaporCompute.SetVector("_LightColor", l.color * l.intensity * vaporLight.FogScatterIntensity);
+
+
+
+				switch (vaporLight.LightType) {
+					case LightType.Point:
+						m_vaporCompute.SetTexture(m_lightPointKernel, "_LightAccum", m_lightTex);
+						m_vaporCompute.Dispatch(m_lightPointKernel, c_horizontalTextureRes / 4, c_verticalTextureRes / 4, c_volumeDepth / 4);
+						break;
+
+					case LightType.Spot:
+						if (vaporLight.HasShadow) {
+							Matrix4x4 v = vaporLight.transform.worldToLocalMatrix;
+							Matrix4x4 p =
+								GL.GetGPUProjectionMatrix(Matrix4x4.Perspective(vaporLight.Light.spotAngle, 1.0f,
+									vaporLight.Light.shadowNearPlane,
+									vaporLight.Light.range), true);
+
+							//For some reason z is flipped :(
+							p *= Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f));
+
+							m_vaporCompute.SetMatrix("_SpotShadowMatrix", p * v);
+							m_vaporCompute.SetTexture(m_densityKernel, "_SpotShadow", vaporLight.ShadowMap);
+						}
+
+						var lightProjMatrix = Matrix4x4.identity;
+						float d = Mathf.Deg2Rad * l.spotAngle * 0.5f;
+						d = Mathf.Cos(d) / Mathf.Sin(d);
+						lightProjMatrix[3, 2] = 2f / d;
+						lightProjMatrix[3, 3] = 0.1f;
+						var mat = lightProjMatrix * l.transform.worldToLocalMatrix;
+						m_vaporCompute.SetMatrix("_SpotMatrix", mat);
+
+						//TODO: Per light
+						if (l.cookie != null) {
+							m_vaporCompute.SetTexture(m_densityKernel, "_SpotCookie", l.cookie);
+						}
+						else {
+							m_vaporCompute.SetTexture(m_densityKernel, "_SpotCookie", SpotCookie);
+						}
+						break;
+				}
+			}
+
+
+			//Finally bind directional light for main pass (if it's there)
+			//TODO: Empty bind if there's no main light
+			//TODO: Use a light pass for this too? Not sure if that's better or worse perf
+			for (int index = 0; index < m_lights.Count; index++) {
+				var vaporLight = m_lights[index];
+				var l = vaporLight.Light;
+
+				if (vaporLight.LightType != LightType.Directional) {
+					continue;
+				}
+
+				m_vaporCompute.SetVector("_LightPosRange", l.transform.forward);
+				m_vaporCompute.SetVector("_LightColor", l.color * l.intensity * vaporLight.FogScatterIntensity);
+
+				if (vaporLight.HasShadow) {
+					m_vaporCompute.SetBuffer(m_densityKernel, "_MatrixBuf", vaporLight.MatrixBuffer);
+					m_vaporCompute.SetBuffer(m_densityKernel, "_LightSplits", vaporLight.LightSplitsBuffer);
+					m_vaporCompute.SetTexture(m_densityKernel, "_ShadowMapTexture", vaporLight.ShadowMap);
 				}
 				else {
-					Vector4 posRange = l.transform.position;
-					posRange.w = 1.0f / (l.range * l.range);
-					var intenisty = l.color * l.intensity * vaporLight.FogScatterIntensity * 8.0f;
-
-					switch (vaporLight.LightType) {
-						case LightType.Point: {
-							m_pointLightDataBuffer[pointLightCount].PosRange = posRange;
-							m_pointLightDataBuffer[pointLightCount].Intensity = intenisty;
-							++pointLightCount;
-						}
-							break;
-
-						case LightType.Spot: {
-							if (vaporLight.HasShadow) {
-								Matrix4x4 v = vaporLight.transform.worldToLocalMatrix;
-								Matrix4x4 p =
-									GL.GetGPUProjectionMatrix(Matrix4x4.Perspective(vaporLight.Light.spotAngle, 1.0f,
-										vaporLight.Light.shadowNearPlane,
-										vaporLight.Light.range), true);
-
-								//For some reason z is flipped :(
-								p *= Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f));
-								m_spotLightDataBuffer[spotLightCount].ShadowMatrix = p * v;
-								m_vaporCompute.SetTexture(m_densityKernel, "_SpotShadow", vaporLight.ShadowMap);
-							}
-							else {
-								m_vaporCompute.SetTexture(m_densityKernel, "_SpotShadow", Texture2D.whiteTexture);
-							}
-
-							m_spotLightDataBuffer[spotLightCount].PosRange = posRange;
-							m_spotLightDataBuffer[spotLightCount].Intensity = intenisty;
-
-							var lightProjMatrix = Matrix4x4.identity;
-							float d = Mathf.Deg2Rad * l.spotAngle * 0.5f;
-							d = Mathf.Cos(d) / Mathf.Sin(d);
-							lightProjMatrix[3, 2] = 2f / d;
-							lightProjMatrix[3, 3] = 0.1f;
-							var mat = lightProjMatrix * l.transform.worldToLocalMatrix;
-							m_spotLightDataBuffer[spotLightCount].LightMatrix = mat;
-							++spotLightCount;
-						}
-							break;
-					}
+					m_vaporCompute.SetTexture(m_densityKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
 				}
 			}
 
-			m_vaporCompute.SetInt("_PointLightCount", pointLightCount);
-			m_vaporCompute.SetInt("_SpotLightCount", spotLightCount);
-
-
-			if (m_pointLightDataBuffer.Length < pointLightCount) {
-				Array.Resize(ref m_pointLightDataBuffer, pointLightCount);
-				CreateComputeBuffers();
-			}
-
-			m_pointLightBuffer.SetData(m_pointLightDataBuffer);
-			m_vaporCompute.SetBuffer(m_densityKernel, "_PointLightBuffer", m_pointLightBuffer);
-
-			if (m_pointLightDataBuffer.Length < spotLightCount) {
-				Array.Resize(ref m_pointLightDataBuffer, pointLightCount);
-				CreateComputeBuffers();
-			}
-
-			m_spotLightBuffer.SetData(m_spotLightDataBuffer);
-			m_vaporCompute.SetBuffer(m_densityKernel, "_SpotLightBuffer", m_spotLightBuffer);
+			m_vaporCompute.SetTexture(m_densityKernel, "_LightAccum", m_lightTex);
 		}
 
 		private void OnRenderImage(RenderTexture source, RenderTexture destination) {
@@ -306,15 +340,16 @@ namespace Vapor {
 			m_secondaryLayer.Bind(m_densityKernel, m_vaporCompute, 1);
 			m_detailLayer.Bind(m_densityKernel, m_vaporCompute, 2);
 
-			m_vaporCompute.SetVector("_NoiseStrength",
-				new Vector4(m_baseLayer.Strength, m_secondaryLayer.Strength, m_detailLayer.Strength));
+			m_vaporCompute.SetVector("_NoiseStrength", new Vector4(m_baseLayer.Strength, m_secondaryLayer.Strength, m_detailLayer.Strength));
 			m_vaporCompute.SetTexture(m_densityKernel, "_DensityTextureWrite", m_densityTex);
 			m_vaporCompute.SetTexture(m_densityKernel, "_DensityTextureOld", m_densityTexOld);
 			m_vaporCompute.SetTexture(m_scatterKernel, "_DensityTexture", m_densityTex);
+
 			m_vaporCompute.SetTexture(m_scatterKernel, "_ScatterTexture", m_scatterTex);
 
-			float near = Camera.current.nearClipPlane;
-			float far = Camera.current.farClipPlane;
+
+			float near = m_camera.nearClipPlane;
+			float far = m_camera.farClipPlane;
 			Vector4 planeSettings = new Vector4(near, far - near, (far + near) / (2 * (far - near)) + 0.5f,
 				(-far * near) / (far - near));
 			m_vaporCompute.SetVector("_PlaneSettings", planeSettings);
@@ -333,10 +368,10 @@ namespace Vapor {
 
 			m_vaporCompute.SetVector("_EmissivePhase",
 				new Vector4(Emissive.r * 0.2f, Emissive.g * 0.2f, Emissive.b * 0.2f, Phase));
-			m_vaporCompute.SetVector("_AmbientLight", AmbientLight);
+			m_vaporCompute.SetVector("_AmbientLight", AmbientLight * AmbientLight.a);
 
 			m_vaporCompute.SetInt("_Frame", m_frameCount);
-			m_vaporCompute.SetVector("_CameraPos", Camera.current.transform.position);
+			m_vaporCompute.SetVector("_CameraPos", m_camera.transform.position);
 
 
 			//Setup range for clamping
@@ -347,8 +382,8 @@ namespace Vapor {
 
 			m_vaporCompute.SetVector("_Range", rangeVec);
 
-			Matrix4x4 v = Camera.current.worldToCameraMatrix;
-			Matrix4x4 p = Camera.current.projectionMatrix;
+			Matrix4x4 v = m_camera.worldToCameraMatrix;
+			Matrix4x4 p = m_camera.projectionMatrix;
 			p = GL.GetGPUProjectionMatrix(p, false);
 
 			Matrix4x4 vp = p * v;
@@ -357,6 +392,13 @@ namespace Vapor {
 			m_vaporCompute.SetMatrix("_VAPOR_VP_OLD", m_vpMatrixOld);
 			m_vaporCompute.SetMatrix("_VAPOR_I_VP", vp.inverse);
 			m_vpMatrixOld = vp;
+
+
+			//Globals
+			m_vaporCompute.SetFloat("_ShadowSoft", ShadowHardness);
+			m_vaporCompute.SetFloat("_ShadowBias", ShadowBias * 0.1f);
+			ShadowFilterMaterial.SetFloat("_ShadowSoft", ShadowHardness);
+
 
 			UpdateLightBind();
 
@@ -401,28 +443,6 @@ namespace Vapor {
 			//Gaussian
 			m_fogMat.SetTexture("_FogTex", m_fogFilterTexture);
 			Graphics.Blit(source, destination, m_fogMat, 1);
-		}
-
-
-		private void OnDisable() {
-			DestroyImmediate(m_densityTex);
-			DestroyImmediate(m_scatterTex);
-
-			if (m_pointLightBuffer != null) {
-				m_pointLightBuffer.Dispose();
-			}
-
-			if (m_spotLightBuffer != null) {
-				m_spotLightBuffer.Dispose();
-			}
-
-			//Destroy all noises
-			m_baseLayer.Destroy();
-			m_secondaryLayer.Destroy();
-			m_detailLayer.Destroy();
-
-			m_cullGroup.Dispose();
-			m_cullGroup = null;
 		}
 
 		public void Register(VaporLight vaporLight) {

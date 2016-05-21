@@ -111,6 +111,7 @@ public class NoiseLayer
 	private static string[] s_scaleNames = { "_NoiseScale0", "_NoiseScale1", "_NoiseScale2" };
 	private static string[] s_scrollNames = { "_NoiseScroll0", "_NoiseScroll1", "_NoiseScroll2" };
 
+
 	public void Bind(int kernel, ComputeShader compute, int i) {
 		compute.SetTexture(kernel, s_texNames[i], m_textureLayer);
 	    compute.SetVector(s_scaleNames[i], SetInvScale);

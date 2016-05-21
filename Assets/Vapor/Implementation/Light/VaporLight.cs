@@ -62,7 +62,10 @@ namespace Vapor {
 
 		private void OnEnable() {
 			m_light = GetComponent<Light>();
-			Vapor.Instance.Register(this);
+
+			foreach (var vap in Vapor.ActiveVapors) {
+				vap.Register(this);
+			}
 
 
 			CreateShadowResources();
@@ -121,8 +124,8 @@ namespace Vapor {
 
 
 		private void OnDisable() {
-			if (Vapor.Instance != null) {
-				Vapor.Instance.Deregister(this);
+			foreach (var vap in Vapor.ActiveVapors) {
+				vap.Deregister(this);
 			}
 
 			if (HasShadow) {

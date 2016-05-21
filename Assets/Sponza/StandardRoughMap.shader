@@ -4,6 +4,7 @@
 		_BumpMap ("Bump (RGB)", 2D) = "white" {}
 		_Rough ("Rough (A)", 2D) = "white" {}
 		_Metallic("Metallic", 2D) = "black" {}
+		_SmoothMult("Smoothness Mult", Float) = 1
 	}
 	SubShader {
 		Tags { "RenderType"="Opaque" }
@@ -25,15 +26,14 @@
 		};
 
 		sampler2D _Metallic;
-
+		float _SmoothMult;
 
 		void surf (Input IN, inout SurfaceOutputStandard o) {
 			// Albedo comes from a texture tinted by color
 			fixed4 c = tex2D (_MainTex, IN.uv_MainTex);
 			o.Albedo = c.rgb;
-			// Metallic and smoothness come from slider variables
-			o.Metallic = tex2D(_Metallic, IN.uv_MainTex);
-			o.Smoothness = 1 - tex2D(_Rough, IN.uv_MainTex);
+			o.Metallic = tex2D(_Metallic, IN.uv_MainTex) + 0.05f;
+			o.Smoothness = 1 - tex2D(_Rough, IN.uv_MainTex) * _SmoothMult;
 			o.Alpha = c.a;
 			o.Normal = UnpackNormal(tex2D(_BumpMap, IN.uv_MainTex));
 		}
