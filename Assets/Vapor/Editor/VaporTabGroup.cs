@@ -94,7 +94,7 @@ public class VaporTabGroup : ScriptableObject
 		GUILayout.Label("");
 
 		var rect = GUILayoutUtility.GetLastRect();
-		rect.x -= 35.0f;
+		//rect.x -= 35.0f;
 		rect.width += hasOptionalGui ? 10.0f : 50.0f;
 
 		m_open[i] = GUI.Toggle(rect, m_open[i], new GUIContent(""), "ShurikenModuleTitle");
@@ -117,7 +117,7 @@ public class VaporTabGroup : ScriptableObject
 			optionalGUI(delRect);
 		}
 
-		rect.x += 35.0f;
+		//rect.x += 35.0f;
 		GUI.color = tabTextColor;
 		GUI.Label(rect, areaName, EditorStyles.whiteLabel);
 		GUI.color = oldCol;

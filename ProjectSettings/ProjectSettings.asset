@@ -468,7 +468,7 @@ PlayerSettings:
   PSM::VR::enable: 0
   PSP2::VR::enable: 0
   SamsungTV::VR::enable: 0
-  Standalone::VR::enable: 1
+  Standalone::VR::enable: 0
   Tizen::VR::enable: 0
   WebGL::VR::enable: 0
   WebGL::analyzeBuildSize: 0

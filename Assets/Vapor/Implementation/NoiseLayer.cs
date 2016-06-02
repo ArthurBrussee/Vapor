@@ -24,6 +24,11 @@ public class NoiseLayer
 	const int c_noiseSize = 32;
 	private const float c_scale = 100.0f;
 
+
+	private static string[] s_texNames = { "_NoiseTex0", "_NoiseTex1", "_NoiseTex2" };
+	private static string[] s_scaleNames = { "_NoiseScale0", "_NoiseScale1", "_NoiseScale2" };
+	private static string[] s_scrollNames = { "_NoiseScroll0", "_NoiseScroll1", "_NoiseScroll2" };
+
 	public Vector3 SetScale {
 		get { return Scale * c_scale; }
 	}
@@ -102,15 +107,10 @@ public class NoiseLayer
 	}
 
 
-	public void Destroy() {
+	public void DestroyTex() {
 		Object.DestroyImmediate(m_textureLayer);
 	}
     
-
-	private static string[] s_texNames = {"_NoiseTex0", "_NoiseTex1", "_NoiseTex2"};
-	private static string[] s_scaleNames = { "_NoiseScale0", "_NoiseScale1", "_NoiseScale2" };
-	private static string[] s_scrollNames = { "_NoiseScroll0", "_NoiseScroll1", "_NoiseScroll2" };
-
 
 	public void Bind(int kernel, ComputeShader compute, int i) {
 		compute.SetTexture(kernel, s_texNames[i], m_textureLayer);

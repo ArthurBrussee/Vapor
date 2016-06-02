@@ -1,9 +1,11 @@
 ﻿#pragma kernel Scatter
 #pragma kernel FogDensity SCATTER_SHADOW SHADOW_CASCADE
-#pragma kernel LightDirectional 
+
+#pragma kernel LightClear
 #pragma kernel LightSpot
 #pragma kernel LightPoint
-#pragma kernel LightClear
+#pragma kernel LightDirectional SCATTER_SHADOW SHADOW_CASCADE
+
 
 #define ONE_OVER_4_PI (1.0f / 4.0f * 3.141596f)
 #define DEPTH_POW 6
@@ -100,8 +102,7 @@ float _ReprojectionSmoothing;
 float _TemporalStrength;
 
 
-float GetHalton2(uint3 id)
-{
+float GetHalton2(uint3 id) {
 	uint index = id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION + _Frame;
 	float result = 0.0f;
 	float  f = 1;
@@ -112,21 +113,35 @@ float GetHalton2(uint3 id)
 		result += f * (i % 2);
 		i = i / 2;
 	}
+	return result;
+}
+float GetHalton3(uint3 id) {
+	uint index = id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION + _Frame;
+	float result = 0.0f;
+	float  f = 1;
+	uint i = index;
 
+	while (i > 0) {
+		f /= 3.0f;
+		result += f * (i % 3);
+		i = i / 3;
+	}
+	return result;
+}
+float GetHalton5(uint3 id) {
+	uint index = id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION + _Frame;
+	float result = 0.0f;
+	float  f = 1;
+	uint i = index;
+
+	while (i > 0) {
+		f /= 5.0f;
+		result += f * (i % 5);
+		i = i / 5;
+	}
 	return result;
 }
 
-
-//This doesn't seem like halton
-uint GetHalton(uint3 id){
-	uint seed = (id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION) + _Frame;
-    seed = (seed ^ 61) ^ (seed >> 16);
-    seed *= 9;
-    seed = seed ^ (seed >> 4);
-    seed *= 0x27d4eb2d;
-    seed = seed ^ (seed >> 15);
-    return seed / UINT_MAX;
-}
 
 float Linear01Depth(float z){
 	return 1.0f / (_ZBufferParams.x * z + _ZBufferParams.y);
@@ -261,8 +276,7 @@ inline float GetFaloff(float3 dd, float range){
 	return faloff;
 }
 
-float3 GetWorldPos(uint3 id, out float zLocal) {
-	float jitter = (GetHalton2(id) - 0.5f) * _TemporalStrength + 0.5f;
+float3 GetWorldPos(uint3 id, float jitter, out float zLocal) {
 
 	float zUv;
 	float4 frustCoord = GetFrustumFromID(id, jitter, zUv);
@@ -282,11 +296,9 @@ float3 GetWorldPos(uint3 id, out float zLocal) {
 [numthreads(4, 4, 4)]
 void FogDensity(uint3 id : SV_DispatchThreadID){
 	float zLocal;
-	float3 worldPos = GetWorldPos(id, zLocal);
-
-	float4 fogPropertiesScatter = _AlbedoExt;
-	float4 fogPropertiesLight = _EmissivePhase;
 	
+	float jitter = (GetHalton2(id) - 0.5f) * _TemporalStrength + 0.5f;
+	float3 worldPos = GetWorldPos(id, jitter, zLocal);
 	//Now add cells for local volumes HERE
 
 	uint3 accumId = id;
@@ -294,69 +306,12 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 
 	float3 fogLight = _AmbientLight.rgb + float3(_LightAccum[accumId], _LightAccum[accumId + uint3(1, 0, 0)], _LightAccum[accumId + uint3(2, 0, 0)]);
 
-	{
-		#ifdef SCATTER_SHADOW
-			float shadow = GetShadow(worldPos, zLocal);
-		#else
-			float shadow = 1.0f;
-		#endif
-
-		float3 direction = normalize(_CameraPos.xyz - worldPos);
-
-		{
-			float cosTheta = dot(direction, _LightPosRange.xyz);
-			float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
-			fogLight += scatter * _LightColor.rgb * shadow;
-		}
-		
-
-		/*
-		//TODO: LIGHT PASS
-		{
-			for(uint l = 0; l < _PointLightCount; ++l){
-
-			}
-		}
-
-		{
-			for(uint l = 0; l < _SpotLightCount; ++l){
-				SpotLight light = _SpotLightBuffer[l];
-
-				float4 lightCoord = mul(light.LightMatrix, float4(worldPos, 1.0f));
-
-				//TODO: In light pass this if should just dissapear naturally
-				if (lightCoord.z > 0){
-					float3 dd = worldPos - light.PosRange.xyz;
-
-					float faloff = GetFaloff(dd, light.PosRange.w);
-					float4 shadowCoord = mul(light.ShadowMatrix, worldPosRaw);
-					shadowCoord.xyz /= shadowCoord.w;
-
-					//From device coords to clip space. TODO: Apply in matrix
-					shadowCoord.xy = shadowCoord.xy * 0.5f + 0.5f;
-					shadowCoord.y = 1.0f - shadowCoord.y;
-
-
-					float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
-					//faloff *= depth > saturate(shadowCoord.z) ? 1.0f : 0.0f;
-					faloff *= saturate(depth * exp(-_ShadowSoft * saturate(shadowCoord.z)));
-			
-					float cosTheta = dot(direction, normalize(dd));
-					float scatter = GetScatterHenyey(cosTheta, fogPropertiesLight.a);
-
-					//Apply cookie
-					float4 cookie = _SpotCookie.SampleLevel(sampler_SpotCookie, lightCoord.xy / lightCoord.w + 0.5f, 0.0f);			
-					fogLight += faloff * scatter * light.Intensity.rgb * cookie.rgb * cookie.a;
-				}
-			}
-		}*/
-	}
 
 	//Write incoming light * albedo, extinction
 
 	//Exp makes noise a bit more defined
 	float noise = exp(-GetNoiseAtPos(worldPos));
-	float4 lightWrite = float4(fogLight * fogPropertiesScatter.rgb + fogPropertiesLight.rgb, fogPropertiesScatter.a * noise);
+	float4 lightWrite = float4(fogLight * _AlbedoExt.rgb + _EmissivePhase.rgb, _AlbedoExt.a * noise);
 
 	//Reprojection
 	float4 frustum = mul(_VAPOR_VP_OLD, float4(worldPos, 1.0f)); //to frustum coords [-1, 1] xy, [0, 1] z
@@ -374,45 +329,96 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	_DensityTextureWrite[id] = expWeight * lightWrite + (1.0f - expWeight) * oldVal;
 }
 
-[numthreads(4, 4, 4)]
-void LightClear(uint3 id : SV_DispatchThreadID) {
-	_LightAccum[id] = 0;
+
+uint3 _LightWriteLower;
+
+void WriteLight(uint3 pos, float3 val) {
+	pos.x *= 3;
+	_LightAccum[pos + uint3(0, 0, 0)] = val.r;
+	_LightAccum[pos + uint3(1, 0, 0)] = val.g;
+	_LightAccum[pos + uint3(2, 0, 0)] = val.b;
+}
+void WriteLightAdd(uint3 pos, float3 val) {
+	pos.x *= 3;
+	_LightAccum[pos + uint3(0, 0, 0)] += val.r;
+	_LightAccum[pos + uint3(1, 0, 0)] += val.g;
+	_LightAccum[pos + uint3(2, 0, 0)] += val.b;
 }
 
-/*
+float4x4 _SpotMatrix;
+float4x4 _SpotShadowMatrix;
+
 [numthreads(4, 4, 4)]
 void LightDirectional(uint3 id : SV_DispatchThreadID) {
+	float zLocal;
+	float3 worldPos = GetWorldPos(id, 0.5f, zLocal);
 
+	float3 direction = normalize(_CameraPos.xyz - worldPos);
+
+	float cosTheta = dot(direction, _LightPosRange.xyz);
+	float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
+	
+
+	float shadow = GetShadow(worldPos, zLocal);
+
+	WriteLight(id, scatter * _LightColor.rgb * shadow);
 }
+
+
 
 [numthreads(4, 4, 4)]
 void LightSpot(uint3 id : SV_DispatchThreadID) {
+	float zLocal;
+	float3 worldPos = GetWorldPos(id, 0.5f, zLocal);
 
+	float4 lightCoord = mul(_SpotMatrix, float4(worldPos, 1.0f));
+
+	//TODO: In light pass this if should just dissapear naturally
+	if (lightCoord.z > 0) {
+		float3 direction = normalize(_CameraPos.xyz - worldPos);
+		float3 dd = worldPos - _LightPosRange.xyz;
+		float faloff = GetFaloff(dd, _LightPosRange.w);
+		
+		if (faloff > 0) {
+			float4 shadowCoord = mul(_SpotShadowMatrix, float4(worldPos, 1.0f));
+			shadowCoord.xyz /= shadowCoord.w;
+
+			//From device coords to clip space. 
+			//TODO: Apply in matrix?
+			shadowCoord.xy = shadowCoord.xy * 0.5f + 0.5f;
+			shadowCoord.y = 1.0f - shadowCoord.y;
+
+			float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
+			faloff *= saturate(depth * exp(-_ShadowSoft * saturate(shadowCoord.z)));
+
+			float cosTheta = dot(direction, normalize(dd));
+			float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
+
+			//Apply cookie
+			float4 cookie = _SpotCookie.SampleLevel(sampler_SpotCookie, lightCoord.xy / lightCoord.w + 0.5f, 0.0f);
+
+			WriteLightAdd(id, faloff * scatter * _LightColor.rgb * cookie.rgb * cookie.a);
+		}
+	}
 }
-
-*/
 
 
 [numthreads(4, 4, 4)]
 void LightPoint(uint3 id : SV_DispatchThreadID) {
+
+	id += _LightWriteLower;
+
 	float zLocal;
-	float3 worldPos = GetWorldPos(id, zLocal);
+	float3 worldPos = GetWorldPos(id, 0.5f, zLocal);
 	float3 direction = normalize(_CameraPos.xyz - worldPos);
-
-
 	float3 dd = worldPos - _LightPosRange.xyz;
+
 	float faloff = GetFaloff(dd, _LightPosRange.w);
+	
+	if (faloff > 0) {
+		float cosTheta = dot(direction, normalize(dd));
+		float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
 
-	float cosTheta = dot(direction, normalize(dd));
-	float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
-
-
-	float3 ret = faloff * scatter * _LightColor.rgb;
-
-	id.x *= 3;
-
-
-	_LightAccum[id] += ret.r;
-	_LightAccum[id + uint3(1, 0, 0)] += ret.g;
-	_LightAccum[id + uint3(2, 0, 0)] += ret.b;
+		WriteLightAdd(id, faloff * scatter * _LightColor.rgb);
+	}
 }

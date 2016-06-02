@@ -328,6 +328,7 @@ MeshRenderer:
   m_PreserveUVs: 1
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
+  m_SelectedWireframeHidden: 0
   m_MinimumChartSize: 4
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
@@ -1386,17 +1387,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a2a7e54b4a14f69488bbdbed50a0eb85, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Albedo: {r: 0.66176474, g: 0.66176474, b: 0.66176474, a: 1}
-  Extinction: 0.11
-  TemporalStrength: 0.2
-  Phase: 0
-  Emissive: {r: 0, g: 0, b: 0, a: 1}
-  AmbientLight: {r: 0.19463669, g: 0.26180646, b: 0.2647059, a: 1}
-  BlurSize: 0
-  AveragingSpeed: 0.1
-  ShadowHardness: 20.8
-  ShadowBias: 0.05
-  SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
+  m_setting: {fileID: 11400000, guid: 98b73c90bb6f3254f8ac72966a406e4b, type: 2}
   m_baseLayer:
     Frequency: 5
     Persistence: 0.97
@@ -1424,6 +1415,13 @@ MonoBehaviour:
     ScrollSpeed: {x: 0.23, y: 0.7, z: 0.46}
     Scale: {x: 1, y: 1, z: 1}
     Strength: 0
+  TemporalStrength: 0.2
+  Phase: 0
+  BlurSize: 0
+  AveragingSpeed: 0.1
+  ShadowHardness: 20.8
+  ShadowBias: 0.05
+  SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
 --- !u!114 &1113062307
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1710,6 +1708,7 @@ MonoBehaviour:
   Vapor: {fileID: 1113062306}
   Sun: {fileID: 869934795}
   Torches: {fileID: 1042077516}
+  ReflectionProbes: {fileID: 0}
   DayTime: 0.44
 --- !u!1 &1209309339
 GameObject:
@@ -3756,6 +3755,7 @@ MeshRenderer:
   m_PreserveUVs: 1
   m_IgnoreNormalsForChartDetection: 0
   m_ImportantGI: 0
+  m_SelectedWireframeHidden: 0
   m_MinimumChartSize: 4
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89

@@ -1,5 +1,4 @@
-﻿using UnityEditor;
-using UnityEngine;
+﻿using UnityEngine;
 
 public static class ComputeShaderExt {
     private static float[] s_matrixFloats = new float[16];

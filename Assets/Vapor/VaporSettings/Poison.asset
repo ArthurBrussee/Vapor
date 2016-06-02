@@ -1,0 +1,17 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0e58e0e57118c974c8316fe05a9e715a, type: 3}
+  m_Name: Poison
+  m_EditorClassIdentifier: 
+  Albedo: {r: 0, g: 0.22794116, b: 0.0015719952, a: 1}
+  Extinction: 0.5
+  Emissive: {r: 0.14536451, g: 0.17647058, b: 0.07396193, a: 1}
+  AmbientLight: {r: 1.3190001, g: 1.3190001, b: 1.3190001, a: 1}
