@@ -1,21 +1,16 @@
 ﻿// Alloy Physical Shader Framework
 // Copyright 2013-2015 RUST LLC.
 // http://www.alloy.rustltd.com/
-
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
 
-
 [Serializable]
-public class VaporTabGroup : ScriptableObject
-{
+public class VaporTabGroup : ScriptableObject {
 	[SerializeField] private List<bool> m_open;
 	[SerializeField] private List<string> m_names;
 	private Action<Rect> m_defaultTabFunction = (r) => GUI.Label(r, "-", EditorStyles.whiteLabel);
-
-
 
 	public static VaporTabGroup GetTabGroup() {
 		var o = Resources.FindObjectsOfTypeAll<VaporTabGroup>();
@@ -36,7 +31,8 @@ public class VaporTabGroup : ScriptableObject
 	}
 
 	private void OnEnable() {
-		if (m_open != null && m_names != null) return;
+		if (m_open != null && m_names != null)
+			return;
 
 		m_open = new List<bool>();
 		m_names = new List<string>();
@@ -57,7 +53,11 @@ public class VaporTabGroup : ScriptableObject
 		return TabArea(areaName, color, hasOptionalGui, m_defaultTabFunction, out removed, saveAs);
 	}
 
-	public bool TabArea(string areaName, Color color, bool hasOptionalGui, Action<Rect> optionalGUI, out bool removed,
+	public bool TabArea(string areaName,
+		Color color,
+		bool hasOptionalGui,
+		Action<Rect> optionalGUI,
+		out bool removed,
 		string saveAs = "") {
 		if (saveAs == "") {
 			saveAs = areaName;
@@ -80,7 +80,10 @@ public class VaporTabGroup : ScriptableObject
 		return TabArea(areaName, hasOptionalGui, m_defaultTabFunction, out removed, saveAs);
 	}
 
-	public bool TabArea(string areaName, bool hasOptionalGui, Action<Rect> optionalGUI, out bool removed,
+	public bool TabArea(string areaName,
+		bool hasOptionalGui,
+		Action<Rect> optionalGUI,
+		out bool removed,
 		string saveAs = "") {
 		if (saveAs == "") {
 			saveAs = areaName;
@@ -152,7 +155,8 @@ public class VaporTabGroup : ScriptableObject
 		m_open[i] = EditorGUILayout.Toggle(new GUIContent(""), m_open[i], "foldout", options);
 
 		if (areaName != "")
-			EditorGUILayout.LabelField(new GUIContent(areaName), labelStyle, GUILayout.ExpandWidth(false), GUILayout.Width(180.0f));
+			EditorGUILayout.LabelField(new GUIContent(areaName), labelStyle, GUILayout.ExpandWidth(false),
+				GUILayout.Width(180.0f));
 		EditorGUILayout.EndHorizontal();
 
 		if (GUI.changed)

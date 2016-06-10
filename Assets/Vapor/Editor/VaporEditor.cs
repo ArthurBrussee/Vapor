@@ -224,11 +224,66 @@ namespace Vapor {
             PropertyField("AveragingSpeed");
             PropertyField("TemporalStrength");
             PropertyField("BlurSize");
-			
-          
-            serializedObject.ApplyModifiedProperties();
+
 
 			var tab = VaporTabGroup.GetTabGroup();
+
+			if (tab.Foldout("Gradients", "Gradients", EditorStyles.boldLabel, GUILayout.Width(18.0f))) {
+				PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
+
+				using (new EditorGUILayout.HorizontalScope()) {
+					Rect rect;
+					using (new EditorGUILayout.VerticalScope()) {
+						//Just for fill
+						GUILayoutUtility.GetRect(30.0f, 100.0f);
+						rect = GUILayoutUtility.GetRect(30.0f, 20.0f);
+						rect.height = 140.0f;
+						rect.yMin += 20;
+					}
+
+
+					GUIUtility.RotateAroundPivot(-90.0f, new Vector2(rect.xMin, rect.yMin));
+
+					EditorGUI.PropertyField(new Rect(rect.xMin, rect.yMin, rect.height, rect.width),
+						serializedObject.FindProperty("HeightGradient.Gradient"), new GUIContent(), true);
+
+					rect = GUILayoutUtility.GetRect(0, float.MaxValue, 0, 120);
+					rect.xMax -= 25.0f;
+
+					GUI.matrix = Matrix4x4.identity;
+					//GUI.DrawTexture(new Rect(rect.xMin, rect.yMin, rect.width, rect.height), (target as Vapor).GradientTex);
+				}
+
+				PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
+
+				using (new EditorGUILayout.HorizontalScope()) {
+					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
+					PropertyField("DistanceGradient.Gradient", "");
+					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
+				}
+			} else {
+				GUILayout.Label("Height gradient");
+				using (new EditorGUILayout.HorizontalScope()) {
+
+					PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
+					PropertyField("HeightGradient.Gradient", "");
+					PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
+				}
+
+				GUILayout.Label("Distance gradient");
+
+				using (new EditorGUILayout.HorizontalScope()) {
+					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
+					PropertyField("DistanceGradient.Gradient", "");
+					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
+				}
+			}
+
+
+
+
+
+
 			GUILayout.Label("Noise", EditorStyles.boldLabel);
 
 			bool removed;
@@ -271,11 +326,6 @@ namespace Vapor {
 	}
 }
 
-
-
-
-
-
 /*
 if (GUI.changed) {
 	for (int index = 0; index < targets.Length; index++) {
@@ -288,58 +338,5 @@ if (GUI.changed) {
 */
 
 /*
-if (tab.Foldout("Gradients", "Gradients", EditorStyles.boldLabel, GUILayout.Width(18.0f))) {
-	//GUILayout.Label("Gradients", EditorStyles.boldLabel);
-	PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
 
-	using (new EditorGUILayout.HorizontalScope()) {
-
-		Rect rect;
-		using (new EditorGUILayout.VerticalScope()) {
-			//Just for fill
-			GUILayoutUtility.GetRect(30.0f, 100.0f);
-			rect = GUILayoutUtility.GetRect(30.0f, 20.0f);
-			rect.height = 140.0f;
-			rect.yMin += 20;
-		}
-
-
-		GUIUtility.RotateAroundPivot(-90.0f, new Vector2(rect.xMin, rect.yMin));
-
-		EditorGUI.PropertyField(new Rect(rect.xMin, rect.yMin, rect.height, rect.width),
-			serializedObject.FindProperty("HeightGradient.Gradient"), new GUIContent(), true);
-
-		rect = GUILayoutUtility.GetRect(0, float.MaxValue, 0, 120);
-		rect.xMax -= 25.0f;
-
-		GUI.matrix = Matrix4x4.identity;
-		GUI.DrawTexture(new Rect(rect.xMin, rect.yMin, rect.width, rect.height),
-			(target as Vapor).GradientTex);
-	}
-
-	PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
-
-	using (new EditorGUILayout.HorizontalScope()) {
-		PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-		PropertyField("DistanceGradient.Gradient", "");
-		PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
-	}
-}
-else {
-	GUILayout.Label("Height gradient");
-	using (new EditorGUILayout.HorizontalScope()) {
-
-		PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
-		PropertyField("HeightGradient.Gradient", "");
-		PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
-	}
-
-	GUILayout.Label("Distance gradient");
-
-	using (new EditorGUILayout.HorizontalScope()) {
-		PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-		PropertyField("DistanceGradient.Gradient", "");
-		PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
-	}
-}
 */

@@ -3,38 +3,51 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Vapor {
-	public struct VaporPointLight {
-		public Vector4 PosRange;
-		public Vector4 Intensity;
-		public const int Stride = 32;
-	}
-
-	public struct VaporSpotLight {
-		public Vector4 PosRange;
-		public Vector4 Intensity;
-
-		public Matrix4x4 LightMatrix;
-		public Matrix4x4 ShadowMatrix;
-
-		public const int Stride = 160;
-	}
-
 	[ExecuteInEditMode]
 	public class VaporLight : VaporObject {
-		public static Mesh QuadMesh;
-		public static Material ShadowFilterMaterial;
-		public static Material ScreenShadowMaterial;
+		private static Mesh s_quadMesh;
+		public static Mesh QuadMesh {
+			get {
+				if (s_quadMesh == null) {
+					//TODO: Can we just get the friggin quad 
+					var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
+					s_quadMesh = go.GetComponent<MeshFilter>().sharedMesh;
+					DestroyImmediate(go);
+				}
 
+				return s_quadMesh;
+			}
+		}
+		
+		private static Material s_shadowFilterMaterial;
+		public static Material ShadowFilterMaterial {
+			get {
+				if (s_shadowFilterMaterial == null) {
+					s_shadowFilterMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowFilterESM"));
+				}
+
+				return s_shadowFilterMaterial;
+			}
+		}
+
+		private static Material s_screenShadowMaterial;
+		public static Material ScreenShadowMaterial {
+			get {
+				if (s_screenShadowMaterial == null) {
+					s_screenShadowMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowProperties"));
+				}
+
+				return s_screenShadowMaterial;
+			}
+		}
 
 		public float FogScatterIntensity = 1.0f;
-		//TODO: Add some culling in here.
-		//TODO: Add back the height gradients
-
 		[NonSerialized]
 		public RenderTexture ShadowMap;
 
 		private CommandBuffer m_shadowCmd;
 		private CommandBuffer m_matrixCmdBuffer;
+
 		public ComputeBuffer MatrixBuffer;
 		public ComputeBuffer LightSplitsBuffer;
 
@@ -70,49 +83,32 @@ namespace Vapor {
 			CreateShadowResources();
 		}
 
-
 		private void OnDisable() {
 			Deregister();
 
-			if (HasShadow) {
-				m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
-				m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
-
-				m_shadowCmd.Dispose();
-
-				if (LightType == LightType.Directional) {
-					m_matrixCmdBuffer.Dispose();
-					MatrixBuffer.Dispose();
-					LightSplitsBuffer.Dispose();
-				}
-
-				DestroyImmediate(ShadowMap);
+			if (!HasShadow) {
+				return;
 			}
+
+			m_light.RemoveCommandBuffers(LightEvent.AfterShadowMap);
+			m_light.RemoveCommandBuffers(LightEvent.AfterScreenspaceMask);
+
+			m_shadowCmd.Dispose();
+
+			if (LightType == LightType.Directional) {
+				m_matrixCmdBuffer.Dispose();
+				MatrixBuffer.Dispose();
+				LightSplitsBuffer.Dispose();
+			}
+
+			DestroyImmediate(ShadowMap);
 		}
-
-
-
-
 
 		public void CreateShadowResources() {
 			if (ShadowMap != null || !HasShadow) {
 				return;
 			}
 
-			if (QuadMesh == null) {
-				//TODO: Can we just get the friggin quad 
-				var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-				QuadMesh = go.GetComponent<MeshFilter>().sharedMesh;
-				DestroyImmediate(go);
-			}
-
-			if (ShadowFilterMaterial == null) {
-				ShadowFilterMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowFilterESM"));
-			}
-
-			if (ScreenShadowMaterial == null) {
-				ScreenShadowMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowProperties"));
-			}
 
 			m_light.RemoveAllCommandBuffers();
 
