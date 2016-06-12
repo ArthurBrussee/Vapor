@@ -37,12 +37,12 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 869934796}
-  m_IndirectSpecularColor: {r: 6.100707, g: 7.649658, b: 10.5262, a: 1}
+  m_IndirectSpecularColor: {r: 6.1006923, g: 7.649635, b: 10.52617, a: 1}
 --- !u!157 &3
 LightmapSettings:
   m_ObjectHideFlags: 0
   serializedVersion: 7
-  m_GIWorkflowMode: 0
+  m_GIWorkflowMode: 1
   m_GISettings:
     serializedVersion: 2
     m_BounceScale: 1
@@ -54,7 +54,7 @@ LightmapSettings:
     m_EnableRealtimeLightmaps: 1
   m_LightmapEditorSettings:
     serializedVersion: 4
-    m_Resolution: 2.5
+    m_Resolution: 1
     m_BakeResolution: 40
     m_TextureWidth: 1024
     m_TextureHeight: 1024
@@ -72,7 +72,8 @@ LightmapSettings:
     m_FinalGatherFiltering: 1
     m_FinalGatherRayCount: 1024
     m_ReflectionCompression: 2
-  m_LightingDataAsset: {fileID: 0}
+  m_LightingDataAsset: {fileID: 112000382, guid: 4bd6b4e85ac983e42b367516db1dc2c2,
+    type: 2}
   m_RuntimeCPUUsage: 50
 --- !u!196 &4
 NavMeshSettings:
@@ -532,6 +533,34 @@ Transform:
   - {fileID: 868410781}
   m_Father: {fileID: 1003533864}
   m_RootOrder: 4
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &453041777
+GameObject:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  serializedVersion: 4
+  m_Component:
+  - 4: {fileID: 453041778}
+  m_Layer: 0
+  m_Name: GameObject (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &453041778
+Transform:
+  m_ObjectHideFlags: 0
+  m_PrefabParentObject: {fileID: 0}
+  m_PrefabInternal: {fileID: 0}
+  m_GameObject: {fileID: 453041777}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 8
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &540267385
 GameObject:
@@ -1139,7 +1168,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 869934795}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalPosition: {x: 0.97, y: 0.42, z: -2.73}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 1104844087}
@@ -1416,21 +1445,21 @@ MonoBehaviour:
     Scale: {x: 1, y: 1, z: 1}
     Strength: 0
   HeightGradient:
-    Start: 0
-    End: 100
+    Start: 5
+    End: 12
     Gradient:
       key0:
         serializedVersion: 2
         rgba: 4294967295
       key1:
         serializedVersion: 2
-        rgba: 4294967295
+        rgba: 4278190335
       key2:
         serializedVersion: 2
-        rgba: 0
+        rgba: 1973950
       key3:
         serializedVersion: 2
-        rgba: 0
+        rgba: 1973950
       key4:
         serializedVersion: 2
         rgba: 0
@@ -1445,8 +1474,8 @@ MonoBehaviour:
         rgba: 0
       ctime0: 0
       ctime1: 65535
-      ctime2: 0
-      ctime3: 0
+      ctime2: 65535
+      ctime3: 65535
       ctime4: 0
       ctime5: 0
       ctime6: 0
@@ -1463,14 +1492,14 @@ MonoBehaviour:
       m_NumAlphaKeys: 2
   DistanceGradient:
     Start: 0
-    End: 100
+    End: 1
     Gradient:
       key0:
         serializedVersion: 2
         rgba: 4294967295
       key1:
         serializedVersion: 2
-        rgba: 4294967295
+        rgba: 4278255390
       key2:
         serializedVersion: 2
         rgba: 0
@@ -1520,7 +1549,7 @@ MonoBehaviour:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1113062300}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: fdc35e0180670ab4e8d2f9439137791f, type: 3}
   m_Name: 

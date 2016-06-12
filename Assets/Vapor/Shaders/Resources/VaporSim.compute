@@ -45,6 +45,10 @@ RWTexture3D<half> _LightAccum;
 Texture3D<half4> _DensityTexture;
 Texture3D<half4> _DensityTextureOld;
 
+Texture2D _GradientTexture;
+SamplerState sampler_GradientTexture;
+
+float4 _GradientSettings;
 
 //Noise definitions
 float4 _NoiseStrength;
@@ -277,7 +281,6 @@ inline float GetFaloff(float3 dd, float range){
 }
 
 float3 GetWorldPos(uint3 id, float jitter, out float zLocal) {
-
 	float zUv;
 	float4 frustCoord = GetFrustumFromID(id, jitter, zUv);
 	zLocal = _PlaneSettings.x + _PlaneSettings.y * zUv;
@@ -287,8 +290,6 @@ float3 GetWorldPos(uint3 id, float jitter, out float zLocal) {
 	worldPosRaw.w = 1.0f;
 
 	return worldPosRaw.xyz;
-
-	
 }
 
 
@@ -302,16 +303,25 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	//Now add cells for local volumes HERE
 
 	uint3 accumId = id;
-	accumId.x *= 3;
+	accumId.z *= 3;
+	float3 directLight;
+	directLight.r = _LightAccum[accumId];
+	accumId.z += 1;
+	directLight.g = _LightAccum[accumId];
+	accumId.z += 1;
+	directLight.b = _LightAccum[accumId];
 
-	float3 fogLight = _AmbientLight.rgb + float3(_LightAccum[accumId], _LightAccum[accumId + uint3(1, 0, 0)], _LightAccum[accumId + uint3(2, 0, 0)]);
-
+	float3 fogLight = _AmbientLight.rgb + directLight;
 
 	//Write incoming light * albedo, extinction
 
 	//Exp makes noise a bit more defined
 	float noise = exp(-GetNoiseAtPos(worldPos));
-	float4 lightWrite = float4(fogLight * _AlbedoExt.rgb + _EmissivePhase.rgb, _AlbedoExt.a * noise);
+
+	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
+	float4 albedo = _AlbedoExt * _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
+
+	float4 lightWrite = float4(fogLight * albedo.rgb + _EmissivePhase.rgb, albedo.a * noise);
 
 	//Reprojection
 	float4 frustum = mul(_VAPOR_VP_OLD, float4(worldPos, 1.0f)); //to frustum coords [-1, 1] xy, [0, 1] z
@@ -333,16 +343,20 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 uint3 _LightWriteLower;
 
 void WriteLight(uint3 pos, float3 val) {
-	pos.x *= 3;
-	_LightAccum[pos + uint3(0, 0, 0)] = val.r;
-	_LightAccum[pos + uint3(1, 0, 0)] = val.g;
-	_LightAccum[pos + uint3(2, 0, 0)] = val.b;
+	pos.z *= 3;
+	_LightAccum[pos] = val.r;
+	pos.z += 1;
+	_LightAccum[pos] = val.g;
+	pos.z += 1;
+	_LightAccum[pos] = val.b;
 }
 void WriteLightAdd(uint3 pos, float3 val) {
-	pos.x *= 3;
-	_LightAccum[pos + uint3(0, 0, 0)] += val.r;
-	_LightAccum[pos + uint3(1, 0, 0)] += val.g;
-	_LightAccum[pos + uint3(2, 0, 0)] += val.b;
+	pos.z *= 3;
+	_LightAccum[pos] += val.r;
+	pos.z += 1;
+	_LightAccum[pos] += val.g;
+	pos.z += 1;
+	_LightAccum[pos] += val.b;
 }
 
 float4x4 _SpotMatrix;
@@ -363,8 +377,6 @@ void LightDirectional(uint3 id : SV_DispatchThreadID) {
 
 	WriteLight(id, scatter * _LightColor.rgb * shadow);
 }
-
-
 
 [numthreads(4, 4, 4)]
 void LightSpot(uint3 id : SV_DispatchThreadID) {

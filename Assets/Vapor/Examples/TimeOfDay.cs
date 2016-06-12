@@ -1,5 +1,4 @@
 ﻿using UnityEngine;
-using System.Collections;
 
 public class TimeOfDay : MonoBehaviour {
 	public Vapor.Vapor Vapor;
@@ -13,7 +12,6 @@ public class TimeOfDay : MonoBehaviour {
 
 	private ReflectionProbe[] m_probes;
 
-
 	void OnEnable() {
 		m_probes = ReflectionProbes.GetComponentsInChildren<ReflectionProbe>();
 		DayTime = 0.0f;
@@ -21,10 +19,8 @@ public class TimeOfDay : MonoBehaviour {
 
 	void OnGUI() {
 		DayTime = GUI.HorizontalSlider(new Rect(0.0f, 0.0f, Screen.width, 20.0f), DayTime, 0.0f, 2.0f);
-		//DayTime += Time.deltaTime * 0.01f;
 	}
 
-	// Update is called once per frame
 	void Update () {
 		float realTime = Mathf.PingPong(DayTime, 1.0f);
 

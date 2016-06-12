@@ -244,21 +244,25 @@ namespace Vapor {
 
 					GUIUtility.RotateAroundPivot(-90.0f, new Vector2(rect.xMin, rect.yMin));
 
+					EditorGUI.BeginChangeCheck();
 					EditorGUI.PropertyField(new Rect(rect.xMin, rect.yMin, rect.height, rect.width),
 						serializedObject.FindProperty("HeightGradient.Gradient"), new GUIContent(), true);
+					if (EditorGUI.EndChangeCheck()) {
+						BakeGradients();
+					}
 
 					rect = GUILayoutUtility.GetRect(0, float.MaxValue, 0, 120);
 					rect.xMax -= 25.0f;
 
 					GUI.matrix = Matrix4x4.identity;
-					//GUI.DrawTexture(new Rect(rect.xMin, rect.yMin, rect.width, rect.height), (target as Vapor).GradientTex);
+					GUI.DrawTexture(new Rect(rect.xMin, rect.yMin, rect.width, rect.height), (target as Vapor).GradientTex);
 				}
 
 				PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
 
 				using (new EditorGUILayout.HorizontalScope()) {
 					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-					PropertyField("DistanceGradient.Gradient", "");
+					GradientField("DistanceGradient.Gradient");
 					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
 				}
 			} else {
@@ -266,7 +270,7 @@ namespace Vapor {
 				using (new EditorGUILayout.HorizontalScope()) {
 
 					PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
-					PropertyField("HeightGradient.Gradient", "");
+					GradientField("HeightGradient.Gradient");
 					PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
 				}
 
@@ -274,7 +278,7 @@ namespace Vapor {
 
 				using (new EditorGUILayout.HorizontalScope()) {
 					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-					PropertyField("DistanceGradient.Gradient", "");
+					GradientField("DistanceGradient.Gradient");
 					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
 				}
 			}
@@ -317,12 +321,25 @@ namespace Vapor {
 			UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
 
 			if (GUILayout.Button("Rebake noise", EditorStyles.toolbarButton)) {
-				foreach (Vapor targ in targets) {
+				foreach (Vapor targ in Vapor.All) {
 					targ.BakeNoiseLayers();
 				}
 			}
 		}
 
+		private void GradientField(string prop) {
+			EditorGUI.BeginChangeCheck();
+			PropertyField(prop, "");
+			if (EditorGUI.EndChangeCheck()) {
+				BakeGradients();
+			}
+		}
+
+		private void BakeGradients() {
+			foreach (Vapor vap in Vapor.All) {
+				vap.UpdateGradients();
+			}
+		}
 	}
 }
 

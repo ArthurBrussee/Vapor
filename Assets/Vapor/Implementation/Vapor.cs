@@ -1,13 +1,17 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Rendering;
 
 namespace Vapor {
 	[ExecuteInEditMode]
 #if UNITY_5_4_OR_NEWER
-	[ImageEffectAllowedInSceneView]
+	//[ImageEffectAllowedInSceneView]
 #endif
 	public class Vapor : MonoBehaviour {
+
+		public static List<Vapor> All = new List<Vapor>();
+
 		[SerializeField]
 		private VaporSetting m_setting;
 		public VaporSetting Setting {
@@ -18,7 +22,7 @@ namespace Vapor {
 				return m_setting;
 			}
 		}
-		//TODO: Add back the height gradients
+
 		//TODO: Noise layer parent
 		[SerializeField]
 		private NoiseLayer m_baseLayer = new NoiseLayer();
@@ -42,12 +46,10 @@ namespace Vapor {
 
 		private CullingGroup m_cullGroup;
 		private BoundingSphere[] m_spheres = new BoundingSphere[64];
-
 		private Camera m_camera;
 
-
-		public VaporGradient HeightGradient;
-		public VaporGradient DistanceGradient;
+		public VaporGradient HeightGradient = new VaporGradient();
+		public VaporGradient DistanceGradient = new VaporGradient();
 
 		[Range(0.0f, 1.0f)] public float TemporalStrength = 1.0f;
 		[Range(-1.0f, 1.0f)] public float Phase;
@@ -83,7 +85,8 @@ namespace Vapor {
 
 		private Material m_fogMat;
 
-
+		private Texture2D m_gradientTex;
+		public Texture2D GradientTex { get { return m_gradientTex; } }
 		//TAA
 		private Matrix4x4 m_vpMatrixOld;
 		private int m_frameCount;
@@ -94,6 +97,8 @@ namespace Vapor {
 		private void OnEnable() {
 			m_camera = GetComponent<Camera>();
 			CreateResources();
+
+			All.Add(this);
 		}
 
 		public void BakeNoiseLayers() {
@@ -102,9 +107,14 @@ namespace Vapor {
 			}
 		}
 
+
 		private void OnDisable() {
+			All.Remove(this);
+
+
 			DestroyImmediate(m_densityTex);
 			DestroyImmediate(m_scatterTex);
+			DestroyImmediate(m_gradientTex);
 
 			for (int i = 0; i < 3; ++i) {
 				GetNoiseLayer(i).DestroyTex();
@@ -112,7 +122,34 @@ namespace Vapor {
 
 			if (m_cullGroup != null) {
 				m_cullGroup.Dispose();
-			} 
+			}
+		}
+
+		public void UpdateGradients() {
+			const int res = 128;
+
+			if (m_gradientTex == null) {
+				m_gradientTex = new Texture2D(res, res, TextureFormat.ARGB32, false);
+				m_gradientTex.wrapMode = TextureWrapMode.Clamp;
+			}
+
+			Color[] texColors = new Color[res * res];
+			for (int i = 0; i < res; i++) {
+				for (int j = 0; j < res; j++) {
+					float ti = (float) i / (res - 1);
+					float tj = (float) j / (res - 1);
+
+					Color colx = DistanceGradient.Gradient.Evaluate(ti);
+					Color coly = HeightGradient.Gradient.Evaluate(tj);
+
+					float size = ti + tj + 0.0001f;
+
+					texColors[i + j * res] = colx * ti / size + coly * tj / size;
+				}
+			}
+
+			m_gradientTex.SetPixels(texColors);
+			m_gradientTex.Apply(false, false);
 		}
 
 		private void CreateResources() {
@@ -135,6 +172,7 @@ namespace Vapor {
 			CreateTexture(ref m_densityTexOld);
 			CreateTexture(ref m_lightTex, RenderTextureFormat.RHalf, 3);
 
+			UpdateGradients();
 
 			for (int i = 0; i < 3; ++i) {
 				if (GetNoiseLayer(i).NeedsBuild()) {
@@ -145,7 +183,7 @@ namespace Vapor {
 		}
 
 		private void CreateTexture(ref RenderTexture tex, RenderTextureFormat format = RenderTextureFormat.ARGBHalf,
-			int widthMult = 1) {
+			int sizeMult = 1) {
 			if (tex != null) {
 				return;
 			}
@@ -154,8 +192,8 @@ namespace Vapor {
 				DestroyImmediate(tex);
 			}
 
-			tex = new RenderTexture(c_horizontalTextureRes * widthMult, c_verticalTextureRes, 0, format) {
-				volumeDepth = c_volumeDepth,
+			tex = new RenderTexture(c_horizontalTextureRes, c_verticalTextureRes, 0, format) {
+				volumeDepth = c_volumeDepth * sizeMult,
 				dimension = TextureDimension.Tex3D,
 				enableRandomWrite = true,
 				wrapMode = TextureWrapMode.Clamp,
@@ -351,6 +389,9 @@ namespace Vapor {
 		private void OnRenderImage(RenderTexture source, RenderTexture destination) {
 			Graphics.ClearRandomWriteTargets();
 
+
+			//TODO: Ideally do the compute part earlier in the frame. If we one day have Async Compute would be huge savings!
+			//Still do need to wait on shadow maps though :/ Or accept 1 frame lag and start at very start of frame
 			for (int i = 0; i < 3; ++i) {
 				GetNoiseLayer(i).Bind(m_densityKernel, m_vaporCompute, i);
 			}
@@ -360,9 +401,15 @@ namespace Vapor {
 			m_vaporCompute.SetTexture(m_densityKernel, "_DensityTextureWrite", m_densityTex);
 			m_vaporCompute.SetTexture(m_densityKernel, "_DensityTextureOld", m_densityTexOld);
 			m_vaporCompute.SetTexture(m_scatterKernel, "_DensityTexture", m_densityTex);
+			m_vaporCompute.SetTexture(m_densityKernel, "_GradientTexture", m_gradientTex);
+
+			float heightSize = Mathf.Max(0, HeightGradient.End - HeightGradient.Start);
+			float distSize = Mathf.Max(0, DistanceGradient.End - DistanceGradient.Start);
+
+			m_vaporCompute.SetVector("_GradientSettings", new Vector4(1.0f / heightSize, -HeightGradient.Start / heightSize,
+																		1.0f / distSize, -DistanceGradient.Start / distSize));
 
 			m_vaporCompute.SetTexture(m_scatterKernel, "_ScatterTexture", m_scatterTex);
-
 
 			float near = m_camera.nearClipPlane;
 			float far = m_camera.farClipPlane;
