@@ -14,4 +14,4 @@ MonoBehaviour:
   Albedo: {r: 1, g: 1, b: 1, a: 1}
   Extinction: 0.1
   Emissive: {r: 0, g: 0, b: 0, a: 1}
-  AmbientLight: {r: 6.7539997, g: 6.7539997, b: 6.7539997, a: 1}
+  AmbientLight: {r: 8, g: 8, b: 8, a: 1}

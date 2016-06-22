@@ -274,7 +274,8 @@ namespace Vapor {
 
 			GUILayout.Label("Noise", EditorStyles.boldLabel);
 
-			PropertyField("NoiseStrength");
+			PropertyField("NoiseBlend");
+			PropertyField("NoiseWeights");
 			PropertyField("NoiseFrequency");
 			PropertyField("NoiseSpeed");
 			PropertyField("NoisePower");

@@ -35,11 +35,13 @@ namespace Vapor {
 		public float BlurSize;
 
 
-
-		public Vector3 NoiseStrength;
+		public Vector2 NoiseBlend;
+		public Vector3 NoiseWeights;
 		public Vector3 NoiseFrequency;
 		public Vector3 NoiseSpeed;
 		public float NoisePower;
+
+
 		public Texture2D NoiseTexture;
 
 		//[SerializeField] private NoiseLayer m_baseLayer = new NoiseLayer();
@@ -378,10 +380,13 @@ namespace Vapor {
 			//m_vaporCompute.SetVector("_NoiseStrength",
 				//new Vector4(GetNoiseLayer(0).Strength, GetNoiseLayer(1).Strength, GetNoiseLayer(2).Strength));
 
-			float total = NoiseStrength.x + NoiseStrength.y+ NoiseStrength.z;
+			float total = NoiseWeights.x + NoiseWeights.y+ NoiseWeights.z;
 
-			Vector4 scale = new Vector4(25.0f, 0.1f, 25.0f);
-			m_vaporCompute.SetVector("_NoiseStrength", NoiseStrength);
+			Vector4 scale = new Vector4(25.0f, 0.5f, 25.0f);
+
+			
+			m_vaporCompute.SetVector("_NoiseWeights", NoiseWeights / total);
+			m_vaporCompute.SetVector("_NoiseVal", NoiseBlend);
 			m_vaporCompute.SetVector("_NoiseFrequency", Vector4.Scale(NoiseFrequency, scale));
 			m_vaporCompute.SetVector("_NoiseSpeed", Vector4.Scale(NoiseSpeed, scale) * 0.01f);
 			m_vaporCompute.SetFloat("_NoisePower", NoisePower);
@@ -496,15 +501,16 @@ namespace Vapor {
 			Profiler.EndSample();
 		}
 
+
 		public void BindSetting(VaporSetting setting) {
-			var albedo = setting.Albedo * 0.1f;
+			var albedo = setting.Albedo;
 			m_vaporCompute.SetVector("_AlbedoExt",
 				new Vector4(albedo.r, albedo.g, albedo.b, setting.Extinction));
 			m_vaporCompute.SetFloat("_Extinction", setting.Extinction);
 			var emissive = setting.Emissive * 0.2f;
 
 
-			var ambientEmissive = setting.AmbientLight * setting.AmbientLight.a * setting.Albedo;
+			var ambientEmissive = setting.AmbientLight * setting.AmbientLight.a;
 			m_vaporCompute.SetVector("_EmissivePhase", new Vector4(emissive.r + ambientEmissive.r, emissive.g + ambientEmissive.g, emissive.b + ambientEmissive.b, Phase));
 		}
 

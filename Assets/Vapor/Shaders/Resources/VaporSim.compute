@@ -209,7 +209,7 @@ void Scatter(uint3 id : SV_DispatchThreadID) {
 		);
 
 	//TODO: Emissive should come from texture...
-	float4 scatterExt = float4(fogProps.rgb * directLight + _EmissivePhase.rgb, fogProps.a);
+	float4 scatterExt = float4(fogProps.rgb * (directLight + _EmissivePhase.rgb), fogProps.a);
 
 	float3 device = UvToDevice(uv);
 	//Reprojection
@@ -361,6 +361,7 @@ void LightPoint(uint3 id : SV_DispatchThreadID) {
 float _NoisePower;
 float4 _NoiseSpeed;
 float4 _NoiseFrequency; 
+float4 _NoiseVal;
 
 [numthreads(4, 4, 4)]
 void FogDensity(uint3 id : SV_DispatchThreadID){
@@ -376,7 +377,13 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 
 	//Exp makes noise a bit more defined
 	//albedo.a *= exp(-GetNoiseAtPos(worldPos));
-	albedo.a *= saturate(1.0f - pow(saturate(fractal_noise(worldPos * _NoiseFrequency.xyz + _Frame * _NoiseSpeed.xyz)), _NoisePower));
+
+
+
+
+	float ns = tanh(fractal_noise(worldPos * _NoiseFrequency.xyz + _Frame * _NoiseSpeed.xyz) * _NoisePower) * 0.5f + 0.5f;
+
+	albedo *= lerp(_NoiseVal.x, _NoiseVal.y, saturate(ns));
 	//albedo.a *= 0.0f;
 
 	//Write old and new value weighed.

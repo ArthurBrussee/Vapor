@@ -68,7 +68,7 @@ Texture2D _NoiseTex;
 SamplerState sampler_NoiseTex;
 
 //Noise definitions
-float4 _NoiseStrength;
+float4 _NoiseWeights;
 
 float noise(float3 x)
 {
@@ -76,15 +76,15 @@ float noise(float3 x)
 	float3 p = floor(x);
 	f = f * f * (3.0f - 2.0f * f);
 	float2 uv = (p.xz + float2(37.0f, 17.0f) * p.y) + f.xz;
-	float2 rg = _NoiseTex.SampleLevel(sampler_NoiseTex, uv / 256.0f, 0.0f).xy;
-	return lerp(rg.y, rg.x, f.y);
+	float2 rg = _NoiseTex.SampleLevel(sampler_NoiseTex, uv / 256.0f, 0.0f).xy * 2.0f - 1.0f;
+	return lerp(rg.x, rg.y, f.y);
 }
 
 float fractal_noise(float3 p)
 {
-	float f =	_NoiseStrength.x * noise(p) +
-				_NoiseStrength.y * noise(1.5f * p) +
-				_NoiseStrength.z * noise(2.25f * p);
+	float f = _NoiseWeights.x * noise(p) +
+		_NoiseWeights.y * noise(1.5f * p) +
+		_NoiseWeights.z * noise(2.25f * p);
 	//f += 0.12500 * noise(p);
 
 	return f;

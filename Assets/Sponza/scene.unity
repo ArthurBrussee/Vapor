@@ -15022,14 +15022,14 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1104844086}
-  m_LocalRotation: {x: -0.57998747, y: -0.13890067, z: 0.082505435, w: -0.7984448}
+  m_LocalRotation: {x: -0.56486255, y: -0.118050255, z: -0.059166767, w: -0.8145513}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 869934797}
   m_Father: {fileID: 0}
   m_RootOrder: 1
-  m_LocalEulerAnglesHint: {x: -251.64, y: -876.4, z: -174.65001}
+  m_LocalEulerAnglesHint: {x: -244.972, y: -861.923, z: -146.943}
 --- !u!1 &1113062300
 GameObject:
   m_ObjectHideFlags: 0
@@ -15117,7 +15117,7 @@ Transform:
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 1113062300}
   m_LocalRotation: {x: -0.053490806, y: 0.70373183, z: 0.047486648, w: 0.706856}
-  m_LocalPosition: {x: -2.84, y: 0.6, z: -0.121}
+  m_LocalPosition: {x: -8.97, y: 0.92, z: 0.42}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -15234,10 +15234,11 @@ MonoBehaviour:
   TemporalStrength: 0.3
   DepthCurvePower: 4
   BlurSize: 0
-  NoiseStrength: {x: 4.7, y: 1.09, z: 1.04}
+  NoiseBlend: {x: 0.1, y: 1}
+  NoiseWeights: {x: 5, y: 3, z: 2}
   NoiseFrequency: {x: 0.5, y: 0.5, z: 0.5}
-  NoiseSpeed: {x: 1, y: 1, z: 1}
-  NoisePower: 8.4
+  NoiseSpeed: {x: 1, y: 0, z: 1}
+  NoisePower: 2
   NoiseTexture: {fileID: 2800000, guid: 7f6ff6e3e212a2848b970df82460d07a, type: 3}
   SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
   DensityKernel: 0
@@ -15315,7 +15316,7 @@ MonoBehaviour:
   m_Tonemapping:
     enabled: 1
     tonemapper: 0
-    exposure: 1.19
+    exposure: 0.6
     curve:
       serializedVersion: 2
       m_Curve:
@@ -15332,11 +15333,11 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
-    neutralBlackIn: 0.02
-    neutralWhiteIn: 10
-    neutralBlackOut: 0
-    neutralWhiteOut: 10
-    neutralWhiteLevel: 5.3
+    neutralBlackIn: -0
+    neutralWhiteIn: 4.5
+    neutralBlackOut: -0.047
+    neutralWhiteOut: 15.7
+    neutralWhiteLevel: 14
     neutralWhiteClip: 10
   m_Lut:
     enabled: 0
