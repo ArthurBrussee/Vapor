@@ -38,19 +38,16 @@ GraphicsSettings:
   m_PreloadedShaders: []
   m_ShaderSettings_Tier1:
     useCascadedShadowMaps: 1
-    useSinglePassStereoRendering: 0
     standardShaderQuality: 2
     useReflectionProbeBoxProjection: 1
     useReflectionProbeBlending: 1
   m_ShaderSettings_Tier2:
     useCascadedShadowMaps: 1
-    useSinglePassStereoRendering: 0
     standardShaderQuality: 2
     useReflectionProbeBoxProjection: 1
     useReflectionProbeBlending: 1
   m_ShaderSettings_Tier3:
     useCascadedShadowMaps: 1
-    useSinglePassStereoRendering: 0
     standardShaderQuality: 2
     useReflectionProbeBoxProjection: 1
     useReflectionProbeBlending: 1

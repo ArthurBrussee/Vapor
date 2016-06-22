@@ -36,26 +36,22 @@ namespace Vapor {
 	}
 
 
-	[CustomEditor(typeof(VaporSetting))]
-	[CanEditMultipleObjects]
-	public class VaporSettingEditor : VaporBaseEditor {
-	
-	}
 
 	[CustomEditor(typeof (Vapor))]
     public class VaporEditor : VaporBaseEditor {
 	    private Editor m_settingEditor;
 
+		/*
 		public enum VisualizeMode {
 			None,
 			Layers,
 			Total
 		}
-
+		*/
 
 		private static Material s_noiseVisualizeMaterial;
 		private static Mesh s_planeMesh;
-		private static VisualizeMode s_visualizeMode;
+		//private static VisualizeMode s_visualizeMode;
 
 		private static Color s_base = new Color(126 / 255.0f, 41 / 255.0f, 41 / 255.0f);
 		private static Color s_secondary = new Color(126 / 255.0f, 66 / 255.0f, 41 / 255.0f);
@@ -85,11 +81,11 @@ namespace Vapor {
 			if (m_settingEditor != null) {
 				DestroyImmediate(m_settingEditor);
 			}
-			m_settingEditor = CreateEditor(targets.Select(t => (t as Vapor).Setting).ToArray());
+			m_settingEditor = CreateEditor(targets.Select(t => (t as Vapor).Setting).ToArray(), typeof(VaporSettingsEditor));
 		}
 
 		private void OnDisable() {
-			s_visualizeMode = VisualizeMode.None;
+			//s_visualizeMode = VisualizeMode.None;
 			DestroyImmediate(m_settingEditor);
         }
 
@@ -98,22 +94,17 @@ namespace Vapor {
 	    }
 
 
-		private bool NoiseFields(string layerName) {
-			EditorGUI.BeginChangeCheck();
+		private void NoiseFields(string layerName) {
 			PropertyField(layerName + ".Frequency");
 			PropertyField(layerName + ".Persistence");
 			PropertyField(layerName + ".Lacunarity");
 			PropertyField(layerName + ".PerlinOctaves");
 			PropertyField(layerName + ".Seed");
-			bool change = EditorGUI.EndChangeCheck();
-
 			PropertyField(layerName + ".ScrollSpeed");
 			PropertyField(layerName + ".Scale");
 			PropertyField(layerName + ".Strength");
-
-			return change;
 		}
-
+		/*
 		[DrawGizmo(GizmoType.Selected)]
 		private static void RenderNoiseLayers(Vapor vapor, GizmoType gizmoType) {
 			if (s_visualizeMode == VisualizeMode.None) {
@@ -189,6 +180,7 @@ namespace Vapor {
 
 			Gizmos.color = Color.white;
 		}
+	
 
 		private static void DrawNoiseVisualize(NoiseLayer vapor, Vector3 position) {
 			s_noiseVisualizeMaterial.SetTexture("_NoiseTex0", vapor.NoiseTexture);
@@ -197,7 +189,7 @@ namespace Vapor {
 
 			Graphics.DrawMeshNow(s_planeMesh, Matrix4x4.TRS(position, Quaternion.identity, vapor.SetScale));
 		}
-
+			*/
 
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
@@ -219,11 +211,6 @@ namespace Vapor {
 
 			EditorGUILayout.Space();
 
-            PropertyField("ShadowHardness");
-            PropertyField("ShadowBias");
-            PropertyField("AveragingSpeed");
-            PropertyField("TemporalStrength");
-            PropertyField("BlurSize");
 
 
 			var tab = VaporTabGroup.GetTabGroup();
@@ -285,46 +272,67 @@ namespace Vapor {
 
 
 
-
-
-
 			GUILayout.Label("Noise", EditorStyles.boldLabel);
 
+			PropertyField("NoiseStrength");
+			PropertyField("NoiseFrequency");
+			PropertyField("NoiseSpeed");
+			PropertyField("NoisePower");
+			PropertyField("NoiseTexture");
+
+
+			/*
 			bool removed;
-			bool noiseDirty = false;
 			m_baseAnim.target = tab.TabArea(c_baseLayerName, s_base, false, out removed);
 			using (var group = new EditorGUILayout.FadeGroupScope(m_baseAnim.faded)) {
 				if (group.visible) {
-					noiseDirty |= NoiseFields("m_baseLayer");
+					NoiseFields("m_baseLayer");
 				}
 			}
 
 			m_secondaryAnim.target = tab.TabArea(c_secondaryLayerName, s_secondary, false, out removed);
 			using (var group = new EditorGUILayout.FadeGroupScope(m_secondaryAnim.faded)) {
 				if (group.visible) {
-					noiseDirty |= NoiseFields("m_secondaryLayer");
+					NoiseFields("m_secondaryLayer");
 				}
 			}
 
 			m_detailAnim.target = tab.TabArea(c_detailLayerName, s_detail, false, out removed);
 			using (var group = new EditorGUILayout.FadeGroupScope(m_detailAnim.faded)) {
 				if (group.visible) {
-					noiseDirty |= NoiseFields("m_detailLayer");
+					NoiseFields("m_detailLayer");
 				}
 			}
+			*/
 
-			s_visualizeMode = (VisualizeMode)EditorGUILayout.EnumPopup("Visualize Mode", s_visualizeMode);
+			//s_visualizeMode = (VisualizeMode)EditorGUILayout.EnumPopup("Visualize Mode", s_visualizeMode);
 
-			serializedObject.ApplyModifiedProperties();
 
 			//Temporal needs to repaint game view
-			UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
 
+			if (!Application.isPlaying) {
+				UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
+			}
+
+			/*
 			if (GUILayout.Button("Rebake noise", EditorStyles.toolbarButton)) {
-				foreach (Vapor targ in Vapor.All) {
+				foreach (Vapor targ in FindObjectsOfType<Vapor>()) {
 					targ.BakeNoiseLayers();
 				}
 			}
+			*/
+
+			GUILayout.Label("Tech Settings", EditorStyles.boldLabel);
+
+			PropertyField("ShadowHardness");
+			PropertyField("ShadowBias");
+			PropertyField("AveragingSpeed");
+			PropertyField("TemporalStrength");
+			PropertyField("DepthCurvePower");
+			PropertyField("BlurSize");
+
+			serializedObject.ApplyModifiedProperties();
+
 		}
 
 		private void GradientField(string prop) {
@@ -336,7 +344,7 @@ namespace Vapor {
 		}
 
 		private void BakeGradients() {
-			foreach (Vapor vap in Vapor.All) {
+			foreach (Vapor vap in FindObjectsOfType<Vapor>()) {
 				vap.UpdateGradients();
 			}
 		}

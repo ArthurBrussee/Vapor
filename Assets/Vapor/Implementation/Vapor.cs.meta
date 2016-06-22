@@ -1,17 +1,14 @@
 fileFormatVersion: 2
 guid: a2a7e54b4a14f69488bbdbed50a0eb85
-timeCreated: 1463511168
+timeCreated: 1466602025
 licenseType: Pro
 MonoImporter:
   serializedVersion: 2
   defaultReferences:
-  - VaporCompute: {fileID: 7200000, guid: 43461ea8a27fb444795390cd9fed173c, type: 3}
-  - PostShader: {fileID: 4800000, guid: 4939dabfa4324bf4eb0a424daf5f41b0, type: 3}
-  - ShadowPropertiesShader: {fileID: 4800000, guid: 7fc0b57a29fc3ef44a709e9eb6292f6f,
-      type: 3}
-  - ShadowEsmShader: {fileID: 4800000, guid: cfd1f86d0217c8545a3c46297c646453, type: 3}
-  - Sun: {instanceID: 0}
+  - m_setting: {instanceID: 0}
   - SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
+  - NoiseTexture: {fileID: 2800000, guid: cdf53ac2282bb2843aa39f4960585a89, type: 3}
+  - DensityTex: {instanceID: 0}
   executionOrder: -10
   icon: {instanceID: 0}
   userData: 

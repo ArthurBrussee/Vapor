@@ -110,7 +110,6 @@ public class NoiseLayer
 	public void DestroyTex() {
 		Object.DestroyImmediate(m_textureLayer);
 	}
-    
 
 	public void Bind(int kernel, ComputeShader compute, int i) {
 		compute.SetTexture(kernel, s_texNames[i], m_textureLayer);

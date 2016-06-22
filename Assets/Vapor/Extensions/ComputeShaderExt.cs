@@ -10,4 +10,14 @@ public static class ComputeShaderExt {
 
         shader.SetFloats(name, s_matrixFloats);
     }
+
+	public static int TryFindKernel(this ComputeShader shader, string name) {
+		return shader.HasKernel(name) ? shader.FindKernel(name) : - 1;
+	}
+
+	public static void DispatchScaled(this ComputeShader shader, int kernel, int xCount, int yCount, int zCount) {
+		uint xs, ys, zs;
+		shader.GetKernelThreadGroupSizes(kernel, out xs, out ys, out zs);
+		shader.Dispatch(kernel, xCount / (int)xs, yCount / (int)ys, zCount / (int)zs);
+	}
 }

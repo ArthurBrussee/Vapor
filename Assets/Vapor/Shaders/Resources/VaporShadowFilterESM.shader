@@ -21,10 +21,11 @@
 				SamplerState sampler_MainTex;
 
 				float4 frag(v2f IN) : COLOR{
-					//float c = _MainTex.Sample(sampler_MainTex, IN.uv).r;
-					//return c;
 
+					//return _MainTex.SampleLevel(sampler_MainTex, IN.uv, 0);
+				
 					float4 accum = 0.0f;
+					
 					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(0, 0)));
 					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(2, 0)));
 					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(0, 2)));

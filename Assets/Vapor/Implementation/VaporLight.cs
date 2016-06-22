@@ -79,7 +79,7 @@ namespace Vapor {
 
 		private void OnEnable() {
 			m_light = GetComponent<Light>();
-			Register();
+			Register(LightType == LightType.Directional);
 			CreateShadowResources();
 		}
 
@@ -102,6 +102,12 @@ namespace Vapor {
 			}
 
 			DestroyImmediate(ShadowMap);
+		}
+
+
+		//TODO: Better formula here.. this assumes 4K
+		private int GetShadowMapResolution() {
+			return 2048;
 		}
 
 		public void CreateShadowResources() {
@@ -151,12 +157,102 @@ namespace Vapor {
 
 			m_light.AddCommandBuffer(LightEvent.AfterScreenspaceMask, m_matrixCmdBuffer);
 		}
-		
 
-		//TODO: Better formula here.. this assumes 4K
-		private int GetShadowMapResolution() {
-			return 2048;
+		public override void Bind(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj) {
+			var l = Light;
+
+			Vector4 posRange = transform.position;
+			posRange.w = 1.0f / (l.range * l.range);
+			compute.SetVector("_LightPosRange", posRange);
+
+			Vector4 lightStrength = l.color * l.intensity * FogScatterIntensity;
+
+			if (LightType != LightType.Directional) {
+				lightStrength *= 15;
+			}
+
+			compute.SetVector("_LightColor", lightStrength);
+
+
+			switch (LightType) {
+				case LightType.Directional:
+					VaporKernel.ShadowMode mode;
+
+					if (HasShadow) {
+						if (QualitySettings.shadowCascades > 1) {
+							mode = VaporKernel.ShadowMode.Cascaded;
+						}
+						else {
+							mode = VaporKernel.ShadowMode.Shadowed;
+						}
+					}
+					else {
+						mode = VaporKernel.ShadowMode.None;
+					}
+
+
+					int dirKernel = vapor.LightDirKernel.GetKernel(mode);
+
+					compute.SetVector("_LightPosRange", l.transform.forward);
+
+					if (HasShadow) {
+						compute.SetBuffer(dirKernel, "_MatrixBuf", MatrixBuffer);
+						compute.SetBuffer(dirKernel, "_LightSplits", LightSplitsBuffer);
+						compute.SetTexture(dirKernel, "_ShadowMapTexture", ShadowMap);
+					} else {
+						compute.SetTexture(dirKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
+					}
+
+					vapor.SetLightAccum(dirKernel, false);
+					Profiler.BeginSample("Dir Light pass");
+					compute.DispatchScaled(dirKernel, Vapor.HorizontalTextureRes, Vapor.VerticalTextureRes, Vapor.VolumeDepth);
+					Profiler.EndSample();
+					break;
+
+				case LightType.Point:
+					vapor.SetLightAccum(vapor.LightPointKernel, false);
+					vapor.InjectObject(viewProj, vapor.LightPointKernel, this);
+					break;
+
+				case LightType.Spot:
+					int spotKernel = vapor.LightSpotKernel.GetKernel(HasShadow ? VaporKernel.ShadowMode.Shadowed : VaporKernel.ShadowMode.None);
+
+					if (HasShadow) {
+						Matrix4x4 v = transform.worldToLocalMatrix;
+						Matrix4x4 p =
+							GL.GetGPUProjectionMatrix(Matrix4x4.Perspective(Light.spotAngle, 1.0f,
+								Light.shadowNearPlane,
+								Light.range), true);
+
+						//For some reason z is flipped :(
+						p *= Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f));
+
+						compute.SetMatrix("_SpotShadowMatrix", p * v);
+						compute.SetTexture(spotKernel, "_SpotShadow", ShadowMap);
+					}
+
+					var lightProjMatrix = Matrix4x4.identity;
+					float d = Mathf.Deg2Rad * l.spotAngle * 0.5f;
+					d = Mathf.Cos(d) / Mathf.Sin(d);
+					lightProjMatrix[3, 2] = 2f / d;
+					lightProjMatrix[3, 3] = 0.35f;
+					var mat = lightProjMatrix * transform.worldToLocalMatrix;
+					compute.SetMatrix("_SpotMatrix", mat);
+					if (l.cookie != null) {
+						compute.SetTexture(spotKernel, "_SpotCookie", l.cookie);
+					} else {
+						compute.SetTexture(spotKernel, "_SpotCookie", vapor.SpotCookie);
+					}
+
+					vapor.SetLightAccum(spotKernel, false);
+					vapor.InjectObject(viewProj, spotKernel, this);
+					break;
+			}
+
 		}
+
+
+
 
 		public override float Range {
 			get { return m_light.range; }
