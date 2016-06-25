@@ -11,7 +11,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0e58e0e57118c974c8316fe05a9e715a, type: 3}
   m_Name: DefaultVaporSetting
   m_EditorClassIdentifier: 
-  Albedo: {r: 1, g: 1, b: 1, a: 1}
-  Extinction: 0.1
+  Albedo: {r: 0.25935337, g: 0.29798502, b: 0.30147058, a: 1}
+  Extinction: 8.63
   Emissive: {r: 0, g: 0, b: 0, a: 1}
-  AmbientLight: {r: 8, g: 8, b: 8, a: 1}
+  AmbientLight: {r: 0, g: 0, b: 0, a: 1}

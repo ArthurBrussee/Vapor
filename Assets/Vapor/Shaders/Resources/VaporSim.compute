@@ -149,9 +149,20 @@ float GetShadow(float3 wpos, float z){
 #endif
 
 	//TODO: Volumetric shadow maps would be so damn sexy
-	float depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
-	return saturate(depth * exp(-_ShadowSoft * saturate(coords.z + _ShadowBias)));
-	//return depth >= saturate(coords.z +_ShadowBias) ? 1.0f : 0.0f;
+	float2 depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
+	//return saturate(depth * exp(-_ShadowSoft * saturate(coords.z + _ShadowBias)));
+	//bool bigger = depth.r >= saturate(coords.z + _ShadowBias);
+
+	if (depth.r <= saturate(coords.z + _ShadowBias)) {
+		float sig2 = depth.g - depth.r * depth.r;
+		float dif = depth.r - coords.z;
+
+		return saturate(sig2 / (sig2 + dif * dif) * _ShadowSoft);
+	}
+	else {
+		return 1.0f;
+
+	}
 }
 float GetScatterHenyey(float cosTheta, float g){
 	float gg = g * g;
@@ -375,16 +386,9 @@ void FogDensity(uint3 id : SV_DispatchThreadID){
 	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
 	float4 albedo = _AlbedoExt * _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
 
-	//Exp makes noise a bit more defined
 	//albedo.a *= exp(-GetNoiseAtPos(worldPos));
-
-
-
-
 	float ns = tanh(fractal_noise(worldPos * _NoiseFrequency.xyz + _Frame * _NoiseSpeed.xyz) * _NoisePower) * 0.5f + 0.5f;
-
 	albedo *= lerp(_NoiseVal.x, _NoiseVal.y, saturate(ns));
-	//albedo.a *= 0.0f;
 
 	//Write old and new value weighed.
 	_DensityTextureWrite[id] = albedo;

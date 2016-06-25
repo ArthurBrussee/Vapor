@@ -26,20 +26,20 @@ namespace Vapor {
 		public VaporGradient DistanceGradient = new VaporGradient();
 
 
-		public float ShadowHardness = 80.0f;
+		public float ShadowHardness = 0.1f;
 		[Range(0.0f, 1.0f)]
-		public float ShadowBias = 0.05f;
+		public float ShadowBias = 0.02f;
 		public float AveragingSpeed = 0.05f;
-		[Range(0.0f, 1.0f)] public float TemporalStrength = 0.3f;
+		[Range(0.0f, 1.0f)] public float TemporalStrength = 0.4f;
 		public float DepthCurvePower = 4.0f;
 		public float BlurSize;
 
 
-		public Vector2 NoiseBlend;
-		public Vector3 NoiseWeights;
-		public Vector3 NoiseFrequency;
-		public Vector3 NoiseSpeed;
-		public float NoisePower;
+		public Vector2 NoiseBlend = Vector2.one;
+		public Vector3 NoiseWeights = new Vector3(5.0f, 2.0f, 1.0f);
+		public Vector3 NoiseFrequency = Vector3.one;
+		public Vector3 NoiseSpeed = Vector3.one;
+		public float NoisePower = 3.5f;
 
 
 		public Texture2D NoiseTexture;
@@ -66,7 +66,6 @@ namespace Vapor {
 		private BoundingSphere[] m_spheres = new BoundingSphere[64];
 		private Camera m_camera;
 
-
 		[HideInInspector] public Texture2D SpotCookie;
 
 		//These must be multiples of 4!
@@ -74,11 +73,7 @@ namespace Vapor {
 		public const int VerticalTextureRes = 88; //160 * 9/16 == 90 -> 88 - rounded to 8
 		public const int VolumeDepth = 256;
 
-	
-
-
 		private ComputeShader m_vaporCompute;
-
 
 		[NonSerialized]
 		public RenderTexture DensityTex;
@@ -88,11 +83,7 @@ namespace Vapor {
 
 		private RenderTexture m_scatterTex;
 		private RenderTexture m_scatterTexOld;
-
 		private RenderTexture m_integratedTexture;
-
-
-		//TODO: Move these out of main Vapor
 
 		public int DensityKernel;
 		public int LightPointKernel;
@@ -100,7 +91,6 @@ namespace Vapor {
 		public VaporKernel LightDirKernel;
 
 		public int ZoneKernel;
-
 		public int ScatterKernel;
 		public int IntegrateKernel;
 
@@ -125,12 +115,9 @@ namespace Vapor {
 
 			DensityKernel = m_vaporCompute.FindKernel("FogDensity");
 			ZoneKernel = m_vaporCompute.FindKernel("ZoneWrite");
-
-
 			LightPointKernel = m_vaporCompute.FindKernel("LightPoint");
 			LightSpotKernel = new VaporKernel(m_vaporCompute, "LightSpot");
 			LightDirKernel = new VaporKernel(m_vaporCompute, "LightDirectional");
-
 			ScatterKernel = m_vaporCompute.FindKernel("Scatter");
 			IntegrateKernel = m_vaporCompute.FindKernel("Integrate");
 
@@ -140,8 +127,6 @@ namespace Vapor {
 			CreateTexture(ref m_localLightTexR, RenderTextureFormat.RHalf);
 			CreateTexture(ref m_localLightTexG, RenderTextureFormat.RHalf);
 			CreateTexture(ref m_localLightTexB, RenderTextureFormat.RHalf);
-
-
 			CreateTexture(ref m_scatterTex);
 			CreateTexture(ref m_scatterTexOld);
 
@@ -382,7 +367,7 @@ namespace Vapor {
 
 			float total = NoiseWeights.x + NoiseWeights.y+ NoiseWeights.z;
 
-			Vector4 scale = new Vector4(25.0f, 0.5f, 25.0f);
+			Vector4 scale = new Vector4(25.0f, 1.0f, 25.0f);
 
 			
 			m_vaporCompute.SetVector("_NoiseWeights", NoiseWeights / total);
@@ -500,8 +485,7 @@ namespace Vapor {
 			Graphics.Blit(source, destination, m_fogMat, 1);
 			Profiler.EndSample();
 		}
-
-
+		
 		public void BindSetting(VaporSetting setting) {
 			var albedo = setting.Albedo;
 			m_vaporCompute.SetVector("_AlbedoExt",

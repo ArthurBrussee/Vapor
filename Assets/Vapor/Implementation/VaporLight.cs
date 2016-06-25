@@ -6,10 +6,10 @@ namespace Vapor {
 	[ExecuteInEditMode]
 	public class VaporLight : VaporObject {
 		private static Mesh s_quadMesh;
+
 		public static Mesh QuadMesh {
 			get {
 				if (s_quadMesh == null) {
-					//TODO: Can we just get the friggin quad 
 					var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
 					s_quadMesh = go.GetComponent<MeshFilter>().sharedMesh;
 					DestroyImmediate(go);
@@ -18,8 +18,9 @@ namespace Vapor {
 				return s_quadMesh;
 			}
 		}
-		
+
 		private static Material s_shadowFilterMaterial;
+
 		public static Material ShadowFilterMaterial {
 			get {
 				if (s_shadowFilterMaterial == null) {
@@ -31,6 +32,7 @@ namespace Vapor {
 		}
 
 		private static Material s_screenShadowMaterial;
+
 		public static Material ScreenShadowMaterial {
 			get {
 				if (s_screenShadowMaterial == null) {
@@ -41,9 +43,24 @@ namespace Vapor {
 			}
 		}
 
+		private static Material s_shadowBlurMaterial;
+
+		public static Material ShadowBlurMaterial {
+			get {
+				if (s_shadowBlurMaterial == null) {
+					s_shadowBlurMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowBlur"));
+				}
+
+				return s_shadowBlurMaterial;
+			}
+		}
+
+
+
+
 		public float FogScatterIntensity = 1.0f;
-		[NonSerialized]
-		public RenderTexture ShadowMap;
+		[NonSerialized] public RenderTexture ShadowMap;
+		public float ShadowBlur = 2.0f;
 
 		private CommandBuffer m_shadowCmd;
 		private CommandBuffer m_matrixCmdBuffer;
@@ -53,13 +70,9 @@ namespace Vapor {
 
 		private Light m_light;
 
-		public Light Light {
-			get { return m_light; }
-		}
+		public Light Light { get { return m_light; } }
 
-		public LightType LightType {
-			get { return m_light.type; }
-		}
+		public LightType LightType { get { return m_light.type; } }
 
 		private bool ShadowSupported() {
 			return m_light.type == LightType.Directional || m_light.type == LightType.Spot;
@@ -114,30 +127,17 @@ namespace Vapor {
 			if (ShadowMap != null || !HasShadow) {
 				return;
 			}
-
-
+			
 			m_light.RemoveAllCommandBuffers();
 
-
 			int res = GetShadowMapResolution();
-			ShadowMap = new RenderTexture(res, res, 0, RenderTextureFormat.RFloat) {name = "VaporShadowMap"};
-			
-			RenderTargetIdentifier shadowId = BuiltinRenderTextureType.CurrentActive;
-			int blurTemp = Shader.PropertyToID("_ShadowBlurTemp");
+			ShadowMap = new RenderTexture(res, res, 0, RenderTextureFormat.RGFloat) {name = "VaporShadowMap"};
+
 
 			m_shadowCmd = new CommandBuffer();
 
 			//Create shadow command buffer
-			m_shadowCmd.SetShadowSamplingMode(shadowId, ShadowSamplingMode.RawDepth);
-			m_shadowCmd.GetTemporaryRT(blurTemp, -1, -1, 0, FilterMode.Bilinear, RenderTextureFormat.RFloat);
-
-			m_shadowCmd.Blit(shadowId, blurTemp);
-			m_shadowCmd.Blit(blurTemp, ShadowMap, ShadowFilterMaterial);
-
-			//Blur the shadow map. //TODO: Set offsets:
-			//m_shadowCmd.Blit((RenderTargetIdentifier) ShadowMap, blurTemp, Vapor2.ShadowBlurMaterial, 0);
-			//m_shadowCmd.Blit(blurTemp, ShadowMap, Vapor2.ShadowBlurMaterial, 1);
-			//m_shadowCmd.ReleaseTemporaryRT(blurTemp);
+			UpdateCommandBuffer();
 
 			m_light.AddCommandBuffer(LightEvent.AfterShadowMap, m_shadowCmd);
 
@@ -158,7 +158,32 @@ namespace Vapor {
 			m_light.AddCommandBuffer(LightEvent.AfterScreenspaceMask, m_matrixCmdBuffer);
 		}
 
+		private void UpdateCommandBuffer() {
+			RenderTargetIdentifier shadowId = BuiltinRenderTextureType.CurrentActive;
+			int blurTemp = Shader.PropertyToID("_ShadowBlurTemp");
+
+
+			m_shadowCmd.Clear();
+
+			m_shadowCmd.SetShadowSamplingMode(shadowId, ShadowSamplingMode.RawDepth);
+			m_shadowCmd.GetTemporaryRT(blurTemp, ShadowMap.width, ShadowMap.height, 0, FilterMode.Bilinear,
+				RenderTextureFormat.RGFloat);
+
+			m_shadowCmd.SetGlobalTexture("_ShadowMap", shadowId);
+			m_shadowCmd.Blit((Texture) null, ShadowMap, ShadowFilterMaterial);
+
+			//Blur the shadow map
+			m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.right * ShadowBlur);
+			m_shadowCmd.Blit((RenderTargetIdentifier) ShadowMap, blurTemp, ShadowBlurMaterial, 0);
+
+			m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.up * ShadowBlur);
+			m_shadowCmd.Blit(blurTemp, ShadowMap, ShadowBlurMaterial, 0);
+			m_shadowCmd.ReleaseTemporaryRT(blurTemp);
+		}
+
 		public override void Bind(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj) {
+			UpdateCommandBuffer();
+
 			var l = Light;
 
 			Vector4 posRange = transform.position;
@@ -166,13 +191,9 @@ namespace Vapor {
 			compute.SetVector("_LightPosRange", posRange);
 
 			Vector4 lightStrength = l.color * l.intensity * FogScatterIntensity;
-
-			if (LightType != LightType.Directional) {
-				lightStrength *= 15;
-			}
+			lightStrength *= 5;
 
 			compute.SetVector("_LightColor", lightStrength);
-
 
 			switch (LightType) {
 				case LightType.Directional:
@@ -199,7 +220,8 @@ namespace Vapor {
 						compute.SetBuffer(dirKernel, "_MatrixBuf", MatrixBuffer);
 						compute.SetBuffer(dirKernel, "_LightSplits", LightSplitsBuffer);
 						compute.SetTexture(dirKernel, "_ShadowMapTexture", ShadowMap);
-					} else {
+					}
+					else {
 						compute.SetTexture(dirKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
 					}
 
@@ -215,7 +237,8 @@ namespace Vapor {
 					break;
 
 				case LightType.Spot:
-					int spotKernel = vapor.LightSpotKernel.GetKernel(HasShadow ? VaporKernel.ShadowMode.Shadowed : VaporKernel.ShadowMode.None);
+					int spotKernel =
+						vapor.LightSpotKernel.GetKernel(HasShadow ? VaporKernel.ShadowMode.Shadowed : VaporKernel.ShadowMode.None);
 
 					if (HasShadow) {
 						Matrix4x4 v = transform.worldToLocalMatrix;
@@ -240,7 +263,8 @@ namespace Vapor {
 					compute.SetMatrix("_SpotMatrix", mat);
 					if (l.cookie != null) {
 						compute.SetTexture(spotKernel, "_SpotCookie", l.cookie);
-					} else {
+					}
+					else {
 						compute.SetTexture(spotKernel, "_SpotCookie", vapor.SpotCookie);
 					}
 
@@ -251,11 +275,6 @@ namespace Vapor {
 
 		}
 
-
-
-
-		public override float Range {
-			get { return m_light.range; }
-		}
+		public override float Range { get { return m_light.range; } }
 	}
 }

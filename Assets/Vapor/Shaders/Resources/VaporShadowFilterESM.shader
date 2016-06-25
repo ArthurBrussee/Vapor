@@ -17,21 +17,13 @@
 				#include "VaporCommon.cginc"
 
 				float _ShadowSoft;
-				Texture2D<float> _MainTex;
-				SamplerState sampler_MainTex;
+				Texture2D<float> _ShadowMap;
+				SamplerState sampler_ShadowMap;
+
 
 				float4 frag(v2f IN) : COLOR{
-
-					//return _MainTex.SampleLevel(sampler_MainTex, IN.uv, 0);
-				
-					float4 accum = 0.0f;
-					
-					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(0, 0)));
-					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(2, 0)));
-					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(0, 2)));
-					accum += exp(_ShadowSoft * _MainTex.GatherRed(sampler_MainTex, IN.uv, int2(2, 2)));
-
-					return dot(accum, 1.0f / 16.0f);
+					float depth = _ShadowMap.SampleLevel(sampler_ShadowMap, IN.uv, 0);
+					return float4(depth, depth * depth, 0.0f, 1.0f);
 				}
 			ENDCG
 		}
