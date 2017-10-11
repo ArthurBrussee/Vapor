@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 using System.Collections.Generic;
 
-namespace Vapor {
+namespace VaporAPI {
 	public abstract class VaporObject : MonoBehaviour {
 		public static List<VaporObject> All = new List<VaporObject>();
 
@@ -23,9 +23,10 @@ namespace Vapor {
 			}
 		}
 
-		public abstract void Bind(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj);
+		public abstract void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj);
 
 
-		public abstract float Range { get; }
+		public abstract void GetBounds(Transform space, List<Vector3> cameraWorldBounds);
+		public abstract float CullRange { get; }
 	}
 }

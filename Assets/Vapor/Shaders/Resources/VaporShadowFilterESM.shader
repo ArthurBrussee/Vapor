@@ -22,8 +22,13 @@
 
 
 				float4 frag(v2f IN) : COLOR{
-					float depth = _ShadowMap.SampleLevel(sampler_ShadowMap, IN.uv, 0);
-					return float4(depth, depth * depth, 0.0f, 1.0f);
+
+
+					float depth = _ShadowMap.SampleLevel(sampler_ShadowMap, IN.uv, 0).r;
+
+					//Disabled atm
+					return depth;
+					//return float4(depth, depth * depth, 0.0f, 1.0f);
 				}
 			ENDCG
 		}

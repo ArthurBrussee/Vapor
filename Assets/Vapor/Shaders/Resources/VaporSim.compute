@@ -1,7 +1,7 @@
-﻿#pragma kernel FogDensity SCATTER_SHADOW SHADOW_CASCADE
+﻿#pragma kernel FogDensity BLEND
 #pragma kernel ZoneWrite
 
-#pragma kernel LightDirectional SCATTER_SHADOW SHADOW_CASCADE
+#pragma kernel LightDirectional
 #pragma kernel LightDirectionalShadow SCATTER_SHADOW
 #pragma kernel LightDirectionalShadowCascade SCATTER_SHADOW SHADOW_CASCADE
 
@@ -9,12 +9,20 @@
 #pragma kernel LightSpot
 #pragma kernel LightSpotShadow SCATTER_SHADOW
 
+#pragma kernel LightClear
+
 #pragma kernel Scatter
 #pragma kernel Integrate
 
-#include "VaporFramework.cginc"
+#pragma kernel IntegrateClear
 
-float _ExponentialWeight;
+float4 _ZBufferParams;
+
+float4 _WorldSpaceCameraPos;
+float4 _ProjectionParams;
+float4 unity_CameraWorldClipPlanes[6];
+
+#include "../VaporFramework.cginc"
 
 RWTexture3D<half4> _ScatterTexture;
 Texture3D<half4> _ScatterTextureOld;
@@ -38,17 +46,9 @@ SamplerState sampler_GradientTexture;
 
 float4 _GradientSettings;
 
-
-/*
-#define DECLARE_NOISE_LAYER(n)	\
-float4 _NoiseScale##n;			\
-float4 _NoiseScroll##n;			\
-Texture3D _NoiseTex##n;
-
-DECLARE_NOISE_LAYER(0)
-DECLARE_NOISE_LAYER(1)
-DECLARE_NOISE_LAYER(2)
-*/
+float _ExponentialWeight;
+float _ShadowSoft;
+float _TemporalStrength;
 
 //Main Light data
 float4 _LightColor;
@@ -65,152 +65,182 @@ Texture2D _SpotShadow;
 SamplerState MyLinearRepeatSampler;
 SamplerState MyLinearClampSampler;
 
-StructuredBuffer<float4x4> _MatrixBuf;
-StructuredBuffer<float4> _LightSplits;
+uint _Frame;
+float _Time;
+uint3 _LightWriteLower;
 
-float _ShadowSoft;
-float _ShadowBias;
+
+//HACK: Buffer with matrix & light splits extracted after screenspace mask
+StructuredBuffer<float4> _LightSplits;
+StructuredBuffer<float4x4> _MatrixBuf;
 
 //Cascade clamp. 
 float4 _ShadowRange;
 
+float4x4 _SpotMatrix;
+float4x4 _SpotShadowMatrix;
+
+float _SettingBlend;
+Texture2D _GradientTextureBlend;
+
 //To world & reprojection
 float4x4 _VAPOR_REPROJECT;
 
-uint _Frame;
-
 //Global fog properties
 float4 _AlbedoExt;
-float4 _EmissivePhase;
+float4 _Emissive;
 
-float _TemporalStrength;
-uint3 _LightWriteLower;
+//Atmoshpere settings
+float4 _Rayleigh;
+float4 _RayleighCross;
 
-uint wang_hash(uint3 id)
-{
-	uint seed = (id.x + id.y * X_RESOLUTION + id.z * X_RESOLUTION * Y_RESOLUTION) ^ _Frame;
-	seed = (seed ^ 61) ^ (seed >> 16);
-	seed *= 9;
-	seed = seed ^ (seed >> 4);
-	seed *= 0x27d4eb2d;
-	seed = seed ^ (seed >> 15);
-	return seed;
+float4 _MieScatter;
+float4 _Atmosphere;
+
+float _LambertBeerDensity;
+
+
+//Noise settings
+float _NoisePower;
+float4 _NoiseSpeed;
+float4 _NoiseFrequency; 
+float4 _NoiseWeights;
+float4 _NoiseMin;
+float4 _NoiseMax;
+Texture2D _NoiseTex;
+SamplerState sampler_NoiseTex;
+
+float4x4 _ZoneWorldToLocal;
+float4 _ZoneSize;
+float _ZoneRadiusSqr;
+
+Texture2D _BlueNoise;
+
+#define PI 3.141592657f
+
+
+
+float3 IDToUv(uint3 id, float zcenter) {
+	return saturate(float3((id.x + 0.5f) / _VaporResolution.x, (id.y + 0.5f) / _VaporResolution.y, (id.z + zcenter) / _VaporResolution.z));
 }
-uint xorshift(uint seed)
-{
-	// Xorshift algorithm from George Marsaglia's paper
-	seed ^= (seed << 13);
-	seed ^= (seed >> 17);
-	seed ^= (seed << 5);
-	return seed;
+
+float3 IDToWorld(uint3 id, float centerZ) {
+	float3 uv = IDToUv(id, centerZ);
+	return VaporUvToWorld(uv);
 }
 
-float GetHalton(uint3 id, uint base) {
-	uint wang = wang_hash(id);
-	return (wang / UINT_MAX - 0.5f) * _TemporalStrength + 0.5f;
+float GetJitter(uint3 id) {
+	uint2 pos = (id.xy) * _Frame;
+
+	uint offset = (id.z + _Frame);
+	pos += float2(offset, offset / 32) * 32;
+
+	pos %= 512;
+
+	float noise = _BlueNoise[pos].a;
+	return (noise - 0.5f) * _TemporalStrength + 0.5f;
 }
 
-float GetShadow(float3 wpos, float z){
-	float4 multPos = float4(wpos, 1.0f);
-	float4 coords;
-
-	float4 splits = _LightSplits[0];
+float GetShadow(float3 world, float z) {
+	float4 wpos = float4(world, 1.0f);
 
 #if SHADOW_CASCADE
-	[branch]
-	if (z < splits.x){
-		coords = mul(_MatrixBuf[0], multPos);
-		coords.xy /= coords.w;
-		
-		coords.x = min(coords.x, _ShadowRange.x);
-		coords.y = min(coords.y, _ShadowRange.y);
-	}else if (z < splits.y){
-		coords = mul(_MatrixBuf[1], multPos);
-		coords.xy /= coords.w;
+	float4 coords;
 
-		coords.x = max(coords.x, _ShadowRange.x);
-		coords.y = min(coords.y, _ShadowRange.y);
-	}else if (z < splits.z){
-		coords = mul(_MatrixBuf[2], multPos);
-		coords.xy /= coords.w;
-
-		coords.x = min(coords.x, _ShadowRange.x);
-		coords.y = max(coords.y, _ShadowRange.y);
-	}else if (z < splits.w){
-		coords = mul(_MatrixBuf[3], multPos);
-		coords.xy /= coords.w;
-
-		coords.x = max(coords.x, _ShadowRange.x);
-		coords.y = max(coords.y, _ShadowRange.y);
+	if (z < _MatrixBuf[4]._m10){
+		coords = mul (_MatrixBuf[0], wpos);
+	}else if (z < _MatrixBuf[4]._m11){
+		coords = mul (_MatrixBuf[1], wpos);
+	}else if (z < _MatrixBuf[4]._m12){
+		coords = mul (_MatrixBuf[2], wpos);
+	}else if (z < _MatrixBuf[4]._m13){
+		coords = mul (_MatrixBuf[3], wpos);
 	}
 #else
-	coords = mul(_MatrixBuf[0], multPos);
-	coords.xy /= coords.w;
+	float4 coords = mul (_MatrixBuf[0], wpos);
 #endif
 
-	//TODO: Volumetric shadow maps would be so damn sexy
-	float2 depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
-	//return saturate(depth * exp(-_ShadowSoft * saturate(coords.z + _ShadowBias)));
-	//bool bigger = depth.r >= saturate(coords.z + _ShadowBias);
-
-	if (depth.r <= saturate(coords.z + _ShadowBias)) {
-		float sig2 = depth.g - depth.r * depth.r;
-		float dif = depth.r - coords.z;
-
-		return saturate(sig2 / (sig2 + dif * dif) * _ShadowSoft);
-	}
-	else {
+	float depth = _ShadowMapTexture.SampleLevel(MyLinearClampSampler, coords.xy, 0.0f).r;
+	
+	if (depth >= saturate(coords.z - 0.02f) && depth > 0.0001f) {
+		return 0.0f;
+	} else {
 		return 1.0f;
-
 	}
 }
-float GetScatterHenyey(float cosTheta, float g){
-	float gg = g * g;
-	float div =  (1 + gg - 2 * g * cosTheta);
-	return ONE_OVER_4_PI * (1 - gg) / sqrt(div * div * div);
+
+//Atmospheric functions
+float RayleighPhase(float cosTheta) {
+	return 1.0f + cosTheta * cosTheta;
 }
 
-/*
-inline float GetNoiseAtPos(float3 worldPos) {
-	float3 coord0 = worldPos * _NoiseScale0.xyz + _NoiseScroll0.xyz;
-	float3 coord1 = worldPos * _NoiseScale1.xyz + _NoiseScroll1.xyz;
-	float3 coord2 = worldPos * _NoiseScale2.xyz + _NoiseScroll2.xyz;
-
-	float3 noiseValues = float3(
-		_NoiseTex0.SampleLevel(MyLinearRepeatSampler, coord0, 0).a,
-		_NoiseTex1.SampleLevel(MyLinearRepeatSampler, coord1, 0).a,
-		_NoiseTex2.SampleLevel(MyLinearRepeatSampler, coord2, 0).a
-		);
-
-	return dot(noiseValues, _NoiseStrength.xyz);
+float MiePhase(float cosTheta, float g) {
+	float gSqr = g * g;
+	return min(10.0f, 0.5f * (1 - gSqr) / pow(abs(1 + gSqr - 2 * g * cosTheta), 1.5f));
 }
-*/
 
-inline float GetFaloff(float3 dd, float range) {
+
+float _AtmosphereRadiusSqr;
+
+float AtmosphereIntersectLength(float3 dir){
+	float3 pos = float3(0, _Atmosphere.w, 0);
+	float dirDot = dot(dir, pos);
+
+	//Pick positive d of sphere intersect
+	float d = -dirDot + sqrt(dirDot * dirDot - dot(pos, pos) + _Atmosphere.z);
+	return d;
+}
+
+float3 GetRayleighDir(float3 worldPos, float3 lightDir, float3 lightColor) {
+	float3 camDifNorm = normalize(_CameraPos.xyz - worldPos);
+
+	float cosTheta = dot(camDifNorm, lightDir);
+	float3 rayleighLight = _Rayleigh.rgb * RayleighPhase(cosTheta);
+
+	float lightDist = AtmosphereIntersectLength(-lightDir);
+	//Fudge fudge, ring around the sun
+	lightDist += pow(abs(cosTheta), _Atmosphere.x) * _Atmosphere.y;
+	
+	
+	//Apply rayleigh & Mie scattering
+	lightColor *= pow(saturate(_RayleighCross.rgb), lightDist);
+	float m = MiePhase(cosTheta, _MieScatter.a);
+	return (rayleighLight + m * _MieScatter.rgb) * lightColor;
+}
+
+float3 GetRayleigh(float3 worldPos, float3 lightDif, float3 lightColor) {
+	float3 camDif = _CameraPos.xyz - worldPos;
+
+	float lightDist = length(lightDif);
+	float camDist = length(camDif);
+
+	camDif /= camDist;
+	lightDif /= lightDist;
+	
+	float cosTheta = dot(camDif, lightDif);
+	float3 rayleighLight = _Rayleigh.rgb * RayleighPhase(cosTheta);
+
+	return (rayleighLight + PI / 4) * lightColor;
+}
+
+
+float GetFaloff(float3 dd, float range) {
 	float lightDistanceSqr = dot(dd, dd);
 	float ratio2 = lightDistanceSqr * range;
 	float num = saturate(1.0f - (ratio2 * ratio2));
 	float faloff = (num * num) / (lightDistanceSqr + 1.0f);
+
+	//TODO: Correct for approximate volume shadow miss
+	faloff *= exp(-sqrt(lightDistanceSqr) * _LambertBeerDensity);
+
 	return faloff;
 }
 
 [numthreads(4, 4, 4)]
 void Scatter(uint3 id : SV_DispatchThreadID) {
-	uint wang = wang_hash(id);
-	uint xor1 = xorshift(wang);
-	uint xor2 = xorshift(xor1);
-
-	float3 jitter = float3(
-		wang,
-		xor1,
-		xor2
-		) / UINT_MAX;
-
-	jitter = (jitter - 0.5f) * _TemporalStrength + 0.5f;
-
+	float jitter = GetJitter(id);
 	float3 uv = IDToUv(id, jitter);
 	
-	//TODO: Volumetric shadow?
 	float4 fogProps = _DensityTexture.SampleLevel(MyLinearClampSampler, uv, 0.0f);
 
 	float3 directLight = float3(
@@ -220,75 +250,79 @@ void Scatter(uint3 id : SV_DispatchThreadID) {
 		);
 
 	//TODO: Emissive should come from texture...
-	float4 scatterExt = float4(fogProps.rgb * (directLight + _EmissivePhase.rgb), fogProps.a);
+	fogProps.rgb *= (directLight + _Emissive.rgb);
 
-	float3 device = UvToDevice(uv);
+	float3 device = UvToVaporDevice(uv);
 	//Reprojection
 	float4 frustum = mul(_VAPOR_REPROJECT, float4(device, 1.0f));
-	frustum.xyz /= frustum.w;
 
-	float3 oldUv = DeviceToUv(frustum.xyz);
+	float3 oldUv = VaporDeviceToUv(frustum.xyz);
 	float expWeight = any(oldUv - saturate(oldUv)) ? 1.0f : _ExponentialWeight;
 
 	float4 oldVal = _ScatterTextureOld.SampleLevel(MyLinearClampSampler, oldUv, 0.0f);
+	float4 write = expWeight * fogProps + (1.0f - expWeight) * oldVal;
 
-	_ScatterTexture[id] = expWeight * scatterExt + (1.0f - expWeight) * oldVal;
+	_ScatterTexture[id] = write;
 }
 
-
+//Integrate by stepping through volume
 [numthreads(8, 8, 1)]
-inline void Integrate(uint3 id : SV_DispatchThreadID){
+inline void Integrate(uint3 id : SV_DispatchThreadID) {
 	uint3 writeId = uint3(id.xy, 0);
 
-
 	float4 scatterExtWrite = float4(0.0f, 0.0f, 0.0f, 1.0f);
-	for(writeId.z = 0; writeId.z < Z_RESOLUTION; ++writeId.z){
+	for(writeId.z = 0; writeId.z < _VaporResolution.z; ++writeId.z){
 		float4 scatterExt = _ScatterTextureOld[writeId];
 
 		//Bit overkill but gets us proper linear dif more or less efficiently.
-		float cellLength = DeviceToLinearDepth(UvToDevice(IDToUv(writeId + uint3(0,0,1), 0.5f)).z) - DeviceToLinearDepth(UvToDevice(IDToUv(writeId, 0.5f)).z);
-		cellLength *= _PlaneSettings.z / 100.0f;
-
-
-		float expExtinction = exp(-scatterExt.a * cellLength);
+		float near = VaporDeviceToEyeDepth(UvToVaporDevice(IDToUv(writeId, 0.0f)).z);
+		float far = VaporDeviceToEyeDepth(UvToVaporDevice(IDToUv(writeId, 1.0f)).z);
+		
+		float cellVolume = abs(far - near) * 0.01f;
+		//float len = _VaporPlaneSettings.z / 100.0f;
+		//cellVolume *= len;
+		
+		float expExtinction = exp(-scatterExt.a * cellVolume);
 		half3 Sint = scatterExt.rgb * (1 - expExtinction) / (scatterExt.a + 0.00001f);
 		
 		scatterExtWrite.rgb += scatterExtWrite.a * Sint;
 		scatterExtWrite.a *= expExtinction;
 
-		_IntegratedTexture[writeId] = scatterExtWrite; 
+		_IntegratedTexture[writeId] = scatterExtWrite;
 	}
 }
+
+[numthreads(4, 4, 4)]
+inline void IntegrateClear(uint3 id : SV_DispatchThreadID) {
+	_IntegratedTexture[id] = float4(0, 0, 0, 1);
+}
+
+
 
 void WriteLight(uint3 pos, float3 val) {
 	_LightAccumR[pos] = val.r;
 	_LightAccumG[pos] = val.g;
 	_LightAccumB[pos] = val.b;
 }
+
 void WriteLightAdd(uint3 pos, float3 val) {
 	_LightAccumR[pos] += val.r;
 	_LightAccumG[pos] += val.g;
 	_LightAccumB[pos] += val.b;
 }
 
-float4x4 _SpotMatrix;
-float4x4 _SpotShadowMatrix;
-
 void LightDirectionalMain(uint3 id : SV_DispatchThreadID) {
 	//Jitter directional too!
-	float3 uv = IDToUv(id, float3(0, 0, GetHalton(id, 2)));
-	float3 device = UvToDevice(uv);
-	float zLocal = DeviceToEye(device.z);
-	float3 worldPos = DeviceToWorld(device);
+	float3 uv = IDToUv(id, GetJitter(id));
+	float3 device = UvToVaporDevice(uv);
+	float zLocal = VaporDeviceToEyeDepth(device.z);
+	float3 worldPos = VaporDeviceToWorld(device);
 
-	float3 direction = normalize(_CameraPos.xyz - worldPos + 0.0001f);
-	float cosTheta = dot(direction, _LightPosRange.xyz);
-	float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
-
+	float3 camDif = _CameraPos.xyz - worldPos;
 	float shadow = GetShadow(worldPos, zLocal);
 
-
-	WriteLight(id, scatter * _LightColor.rgb * shadow);
+	float3 scatter = GetRayleighDir(worldPos, _LightPosRange.xyz,  _LightColor.rgb);
+	WriteLight(id, scatter * shadow);
 }
 
 [numthreads(4, 4, 4)]
@@ -298,9 +332,15 @@ void LightDirectional(uint3 id : SV_DispatchThreadID) {
 [numthreads(4, 4, 4)]
 void LightDirectionalShadow(uint3 id : SV_DispatchThreadID) {
 	LightDirectionalMain(id);
-}[numthreads(4, 4, 4)]
+}
+[numthreads(4, 4, 4)]
 void LightDirectionalShadowCascade(uint3 id : SV_DispatchThreadID) {
 	LightDirectionalMain(id);
+}
+
+[numthreads(4, 4, 4)]
+void LightClear(uint3 id : SV_DispatchThreadID){
+	WriteLight(id, 0.0f);
 }
 
 void LightSpotMain(uint3 id : SV_DispatchThreadID) {
@@ -327,14 +367,9 @@ void LightSpotMain(uint3 id : SV_DispatchThreadID) {
 			float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
 			faloff *= saturate(depth * exp(-_ShadowSoft * saturate(shadowCoord.z)));
 #endif
-
-			float cosTheta = dot(direction, normalize(dd));
-			float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
-
-
-			//Apply cookie
 			float4 cookie = _SpotCookie.SampleLevel(sampler_SpotCookie, lightCoord.xy / lightCoord.w + 0.5f, 0.0f);
-			WriteLightAdd(id, faloff * scatter * _LightColor.rgb * cookie.rgb * cookie.a);
+			float3 scatter = GetRayleigh(worldPos, dd, _LightColor.rgb * cookie.rgb * cookie.a);
+			WriteLightAdd(id, faloff * scatter);
 		}
 	}
 }
@@ -360,51 +395,81 @@ void LightPoint(uint3 id : SV_DispatchThreadID) {
 	float faloff = GetFaloff(dd, _LightPosRange.w);
 
 	if (faloff > 0) {
-		float cosTheta = dot(direction, normalize(dd));
-		float scatter = GetScatterHenyey(cosTheta, _EmissivePhase.a);
-
-		WriteLightAdd(id, faloff * scatter * _LightColor.rgb);
+		float3 scatter = GetRayleigh(worldPos, dd, _LightColor.rgb);
+		WriteLightAdd(id, faloff * scatter);
 	}
 }
 
 
+float4 GetGradient(float3 worldPos, float zLocal) {
+	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
+	float4 grad = _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
 
-float _NoisePower;
-float4 _NoiseSpeed;
-float4 _NoiseFrequency; 
-float4 _NoiseVal;
+#if defined(BLEND)
+	grad = lerp(grad, _GradientTextureBlend.SampleLevel(sampler_GradientTexture, gradientUv, 0), _SettingBlend);
+#endif
+
+	return grad;
+}
+
+//Noise definitions
+float Noise(float3 x) {
+	float3 f = frac(x);
+	float3 p = floor(x);
+	f = f * f * (3.0f - 2.0f * f);
+	float2 uv = (p.xz + float2(37.0f, 17.0f) * p.y) + f.xz;
+	float2 rg = _NoiseTex.SampleLevel(sampler_NoiseTex, uv / 256.0f, 0.0f).xy * 2.0f - 1.0f;
+	return lerp(rg.x, rg.y, f.y);
+}
+
+float FractNoise(float3 p) {
+	float f = _NoiseWeights.x * Noise(p) +
+		_NoiseWeights.y * Noise(1.5f * p) +
+		_NoiseWeights.z * Noise(2.25f * p);
+
+	return f;
+}
 
 [numthreads(4, 4, 4)]
 void FogDensity(uint3 id : SV_DispatchThreadID){
-	float3 uv = IDToUv(id, float3(0.5f, 0.5f, GetHalton(id, 2)));
-	float3 device = UvToDevice(uv);
-	float zLocal = DeviceToEye(device.z);
-	float3 worldPos = DeviceToWorld(device);
-	//Now add cells for local volumes HERE
+	float3 uv = IDToUv(id, GetJitter(id));
+	float3 device = UvToVaporDevice(uv);
+	float zLocal = VaporDeviceToEyeDepth(device.z);
+	float3 worldPos = VaporDeviceToWorld(device);
 
 	//Gather albedo & Extinction
-	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
-	float4 albedo = _AlbedoExt * _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
+	float4 albedo = _AlbedoExt * GetGradient(worldPos, zLocal);
 
-	//albedo.a *= exp(-GetNoiseAtPos(worldPos));
-	float ns = tanh(fractal_noise(worldPos * _NoiseFrequency.xyz + _Frame * _NoiseSpeed.xyz) * _NoisePower) * 0.5f + 0.5f;
-	albedo *= lerp(_NoiseVal.x, _NoiseVal.y, saturate(ns));
+	float ns = tanh(FractNoise(worldPos * _NoiseFrequency.xyz + _Time * _NoiseSpeed.xyz) * _NoisePower) * 0.5f + 0.5f;
+	albedo *= lerp(_NoiseMin, 1.0f, saturate(ns));
 
 	//Write old and new value weighed.
 	_DensityTextureWrite[id] = albedo;
 }
 
-
-float4x4 _ZoneWorldToLocal;
-
 [numthreads(4, 4, 4)]
 void ZoneWrite(uint3 id : SV_DispatchThreadID) {
 	id += _LightWriteLower;
-	float3 worldPos = IDToWorld(id, 0.5f);
+
+	float3 uv = IDToUv(id, GetJitter(id));
+	float3 device = UvToVaporDevice(uv);
+	float3 worldPos = VaporDeviceToWorld(device);
 
 	float3 local = mul(_ZoneWorldToLocal, float4(worldPos, 1.0f)).xyz;
 
-	if (all(abs(local) < 0.5f)) {
-		_DensityTextureWrite[id] = _AlbedoExt;
+	local.x -= clamp(local.x, -_ZoneSize.x, _ZoneSize.x);
+	local.y -= clamp(local.y, -_ZoneSize.y, _ZoneSize.y);
+	local.z -= clamp(local.z, -_ZoneSize.z, _ZoneSize.z);
+	
+	float dist = dot(local, local);
+	float3 emis = _Emissive.rgb;
+
+	if (dist <= _ZoneRadiusSqr) {
+		float zLocal = VaporDeviceToEyeDepth(device.z);
+
+		_DensityTextureWrite[id] = _AlbedoExt * GetGradient(worldPos, zLocal);
+		_LightAccumR[id] += emis.r;
+		_LightAccumG[id] += emis.g;
+		_LightAccumB[id] += emis.b;
 	}
 }

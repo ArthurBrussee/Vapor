@@ -1,16 +1,15 @@
 ﻿using UnityEngine;
 
 public class TimeOfDay : MonoBehaviour {
-	public Vapor.Vapor Vapor;
+	public Vapor Vapor;
 
 	public GameObject Sun;
 	public GameObject Torches;
-
 	public GameObject ReflectionProbes;
 
 	public float DayTime;
 
-	private ReflectionProbe[] m_probes;
+	ReflectionProbe[] m_probes;
 
 	void OnEnable() {
 		m_probes = ReflectionProbes.GetComponentsInChildren<ReflectionProbe>();
@@ -22,20 +21,20 @@ public class TimeOfDay : MonoBehaviour {
 	}
 
 	void Update () {
-		float realTime = Mathf.PingPong(DayTime, 1.0f);
+		DayTime += Time.deltaTime * 0.025f;
+		const float c_minAmb = 0.15f;
 
-		Sun.transform.localRotation = Quaternion.Euler(DayTime * 180.0f, 0.0f, 0.0f);
-
-
+		float realTime = Mathf.Repeat(DayTime, 1.0f);
 		float ambient;
 
-		if (realTime > 0.6f) {
+		if (realTime > 0.8f) {
 			Torches.SetActive(true);
-			ambient = 0.2f;
+			Sun.transform.localRotation = Quaternion.Euler(0.0f, Mathf.Lerp(40.0f, 360.0f, Mathf.Abs(realTime - 0.8f) / 0.2f), 0.0f);
+			ambient = c_minAmb;
 		} else {
 			Torches.SetActive(false);
-			ambient = Mathf.Clamp01(1.0f - realTime * 1.5f);
-
+			ambient = Mathf.Clamp01(1.0f - realTime/0.8f) * (1.0f - c_minAmb ) + c_minAmb;
+            Sun.transform.localRotation = Quaternion.Euler(0.0f, Mathf.Repeat(DayTime, 1.0f) / 0.8f * 30.0f, 0.0f);
 		}
 
 

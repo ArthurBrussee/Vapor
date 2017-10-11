@@ -1,14 +1,15 @@
 fileFormatVersion: 2
 guid: a2a7e54b4a14f69488bbdbed50a0eb85
-timeCreated: 1466602025
+timeCreated: 1474659821
 licenseType: Pro
 MonoImporter:
   serializedVersion: 2
   defaultReferences:
   - m_setting: {instanceID: 0}
-  - SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
+  - m_blendToSetting: {instanceID: 0}
   - NoiseTexture: {fileID: 2800000, guid: cdf53ac2282bb2843aa39f4960585a89, type: 3}
-  - DensityTex: {instanceID: 0}
+  - SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
+  - BlueNoiseTex: {fileID: 2800000, guid: f218b2daee2921e4fbbc3ddd0b4a0073, type: 3}
   executionOrder: -10
   icon: {instanceID: 0}
   userData: 

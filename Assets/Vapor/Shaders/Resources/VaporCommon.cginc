@@ -18,8 +18,9 @@ v2f vert_vapor_fs(appdata v)
 	//hack to make quad draw fullscreen - just convert UV into n. device coordinates
 	o.pos = float4(float2(v.texcoord.x, 1.0f - v.texcoord.y) * 2.0f - 1.0f, 0.0f, 1.0f);
 	o.uv = v.texcoord;
+
+
 	return o;
 }
-
 
 #endif

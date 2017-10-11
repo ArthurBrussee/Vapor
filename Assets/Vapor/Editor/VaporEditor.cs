@@ -1,28 +1,69 @@
-﻿using System.Linq;
+﻿using System;
 using UnityEditor;
 using UnityEditor.AnimatedValues;
 using UnityEngine;
 
-namespace Vapor {
+namespace VaporAPI {
 	public class VaporBaseEditor : Editor {
-		public void PropertyField(string propName) {
+
+
+		public void SettingsField(string propName, string tooltip, ref Editor editor) {
+			var prop = serializedObject.FindProperty(propName);
+
+			if (prop == null) {
+				Debug.LogError(propName);
+				return;
+			}
+
+			if (editor == null) {
+				editor = CreateEditor(prop.objectReferenceValue);
+			}
+
+			using (new GUILayout.HorizontalScope()) {
+				EditorGUI.BeginChangeCheck();
+				EditorGUILayout.PropertyField(prop, new GUIContent(prop.displayName, tooltip));
+				if (EditorGUI.EndChangeCheck()) {
+					serializedObject.ApplyModifiedProperties();
+					DestroyImmediate(editor);
+					editor = CreateEditor(prop.objectReferenceValue);
+
+					if (target is Vapor) {
+						(target as Vapor).MarkInstantRender();
+					}
+
+					serializedObject.Update();
+				}
+
+				var rect = GUILayoutUtility.GetLastRect();
+				rect.width = 18.0f;
+				prop.isExpanded = EditorGUI.Foldout(rect, prop.isExpanded, "");
+			}
+
+			if (prop.isExpanded) {
+				EditorGUILayout.BeginVertical("Box");
+				editor.OnInspectorGUI();
+				EditorGUILayout.EndVertical();
+			}
+		}
+
+		public void PropertyField(string propName, string tooltip) {
 			var prop = serializedObject.FindProperty(propName);
 			if (prop == null) {
 				Debug.LogError(propName);
 				return;
 			}
-			EditorGUILayout.PropertyField(prop, true);
+
+			EditorGUILayout.PropertyField(prop, new GUIContent(prop.displayName, tooltip), true);
 		}
 
-		public void PropertyField(string propName, string label) {
+		public void PropertyField(string propName, string label, string tooltip) {
 			var prop = serializedObject.FindProperty(propName);
 			if (prop == null) {
 				Debug.LogError(propName);
 				return;
 			}
-			EditorGUILayout.PropertyField(prop, new GUIContent(label), true, null);
+			EditorGUILayout.PropertyField(prop, new GUIContent(label, tooltip), true, null);
 		}
-
 
 		public void PropertyField(string propName, string label, params GUILayoutOption[] options) {
 			var prop = serializedObject.FindProperty(propName);
@@ -32,337 +73,177 @@ namespace Vapor {
 
 			EditorGUILayout.PropertyField(prop, new GUIContent(label), true, options);
 		}
-
 	}
 
+	[CustomEditor(typeof(Vapor))]
+	public class VaporEditor : VaporBaseEditor {
+		Editor m_settingEditor;
+		Vapor.QualiySetting m_quality;
+
+		VaporTabGroup m_group;
 
 
-	[CustomEditor(typeof (Vapor))]
-    public class VaporEditor : VaporBaseEditor {
-	    private Editor m_settingEditor;
-
-		/*
-		public enum VisualizeMode {
-			None,
-			Layers,
-			Total
-		}
-		*/
-
-		private static Material s_noiseVisualizeMaterial;
-		private static Mesh s_planeMesh;
-		//private static VisualizeMode s_visualizeMode;
-
-		private static Color s_base = new Color(126 / 255.0f, 41 / 255.0f, 41 / 255.0f);
-		private static Color s_secondary = new Color(126 / 255.0f, 66 / 255.0f, 41 / 255.0f);
-		private static Color s_detail = new Color(57 / 255.0f, 126 / 255.0f, 41 / 255.0f);
+		AnimBool[] m_animBools = new AnimBool[6];
 
 
-		private const float c_period = 9.0f;
-		private const float c_fade = 1.0f;
-		private const string c_baseLayerName = "Base Layer";
-		private const string c_secondaryLayerName = "Secondary Layer";
-		private const string c_detailLayerName = "Detail Layer";
 
-		private AnimBool m_baseAnim = new AnimBool();
-		private AnimBool m_secondaryAnim = new AnimBool();
-		private AnimBool m_detailAnim = new AnimBool();
+		void OnEnable() {
+			m_group = VaporTabGroup.GetTabGroup();
 
-	
-		private void OnEnable() {
-			CreateSettingsEditor();
-			var tab = VaporTabGroup.GetTabGroup();
-			m_baseAnim.value = tab.IsOpen(c_baseLayerName);
-			m_secondaryAnim.value = tab.IsOpen(c_secondaryLayerName);
-			m_detailAnim.value = tab.IsOpen(c_detailLayerName);
+			var xyMult = serializedObject.FindProperty("GlobalResolutionMult");
+			var zMult = serializedObject.FindProperty("DepthResolutionMult");
+
+			float xy = xyMult.floatValue;
+			float z = zMult.floatValue;
+
+			if (xyMult.hasMultipleDifferentValues || zMult.hasMultipleDifferentValues) {
+				m_quality = Vapor.QualiySetting.Custom;
+			}
+			else if (Mathf.Approximately(xy, 0.8f) && Mathf.Approximately(z, 0.8f)) {
+				m_quality = Vapor.QualiySetting.Low;
+			}
+			else if (Mathf.Approximately(xy, 1.0f) && Mathf.Approximately(z, 1.0f)) {
+				m_quality = Vapor.QualiySetting.Medium;
+			}
+			else if (Mathf.Approximately(xy, 1.2f) && Mathf.Approximately(z, 1.2f)) {
+				m_quality = Vapor.QualiySetting.High;
+			}
+			else {
+				m_quality = Vapor.QualiySetting.Custom;
+			}
 		}
 
-		private void CreateSettingsEditor() {
+		void OnDisable() {
 			if (m_settingEditor != null) {
 				DestroyImmediate(m_settingEditor);
 			}
-			m_settingEditor = CreateEditor(targets.Select(t => (t as Vapor).Setting).ToArray(), typeof(VaporSettingsEditor));
 		}
 
-		private void OnDisable() {
-			//s_visualizeMode = VisualizeMode.None;
-			DestroyImmediate(m_settingEditor);
-        }
-
-	    public override bool RequiresConstantRepaint() {
-		    return true;
-	    }
-
-
-		private void NoiseFields(string layerName) {
-			PropertyField(layerName + ".Frequency");
-			PropertyField(layerName + ".Persistence");
-			PropertyField(layerName + ".Lacunarity");
-			PropertyField(layerName + ".PerlinOctaves");
-			PropertyField(layerName + ".Seed");
-			PropertyField(layerName + ".ScrollSpeed");
-			PropertyField(layerName + ".Scale");
-			PropertyField(layerName + ".Strength");
+		public override bool RequiresConstantRepaint() {
+			return true;
 		}
-		/*
-		[DrawGizmo(GizmoType.Selected)]
-		private static void RenderNoiseLayers(Vapor vapor, GizmoType gizmoType) {
-			if (s_visualizeMode == VisualizeMode.None) {
-				return;
+
+		public Color GetTabColor(int index) {
+			return Color.HSVToRGB((index / 18.0f) * 0.8f, 0.75f, 0.5f);
+
+		}
+
+		int m_tabIndex;
+
+		bool Tab(string tabName) {
+			if (m_animBools[m_tabIndex] == null) {
+				m_animBools[m_tabIndex] = new AnimBool(m_group.IsOpen(tabName));
+				m_animBools[m_tabIndex].speed *= 3.0f;
 			}
 
-			if (s_noiseVisualizeMaterial == null) {
-				s_noiseVisualizeMaterial = new Material(Shader.Find("Hidden/VaporNoiseVisualize"));
-				var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
-				s_planeMesh = go.GetComponent<MeshFilter>().sharedMesh;
-				DestroyImmediate(go);
-			}
+			m_animBools[m_tabIndex].target = m_group.TabArea(tabName, GetTabColor(m_tabIndex));
 
-			Vector3 sc1 = vapor.GetNoiseLayer(0).SetScale;
-			Vector3 sc2 = vapor.GetNoiseLayer(1).SetScale;
-			Vector3 sc3 = vapor.GetNoiseLayer(2).SetScale;
-
-			Vector3 scroll1 = vapor.GetNoiseLayer(0).ScrollSpeed;
-			Vector3 scroll2 = vapor.GetNoiseLayer(1).ScrollSpeed;
-			Vector3 scroll3 = vapor.GetNoiseLayer(2).ScrollSpeed;
-
-			float str1 = vapor.GetNoiseLayer(0).Strength;
-			float str2 = vapor.GetNoiseLayer(2).Strength;
-			float str3 = vapor.GetNoiseLayer(2).Strength;
-			var position = vapor.transform.position;
-
-			if (s_visualizeMode == VisualizeMode.Layers) {
-				float time = (float)EditorApplication.timeSinceStartup;
-
-
-				time = Mathf.Repeat(time, c_period);
-				float alph;
-				if (time < c_fade) {
-					alph = Mathf.SmoothStep(0, 1, time / c_fade);
-				} else if (time > c_period - c_fade) {
-					alph = Mathf.SmoothStep(1, 0, (time - (c_period - c_fade)) / c_fade);
-				} else {
-					alph = 1.0f;
-				}
-
-				Gizmos.color = new Color(0.2f, 0.3f, 0.6f, alph * 0.4f * str1);
-				Gizmos.DrawWireCube(position - scroll1 * time, sc1);
-
-				Gizmos.color = new Color(0.2f, 0.3f, 0.6f, alph * 0.4f * str2);
-				Gizmos.DrawWireCube(position - scroll2 * time, sc2);
-
-				Gizmos.color = new Color(0.2f, 0.3f, 0.6f, alph * 0.4f * str3);
-				Gizmos.DrawWireCube(position - scroll3 * time, sc3);
-
-				Gizmos.color = new Color(0.1f, 0.15f, 0.5f, alph * 0.2f);
-				Gizmos.DrawCube(position - scroll1 * time, sc1);
-				Gizmos.DrawCube(position - scroll2 * time, sc2);
-				Gizmos.DrawCube(position - scroll3 * time, sc3);
-
-				DrawNoiseVisualize(vapor.GetNoiseLayer(0), position - scroll1 * time);
-				DrawNoiseVisualize(vapor.GetNoiseLayer(1), position - scroll2 * time);
-				DrawNoiseVisualize(vapor.GetNoiseLayer(2), position - scroll3 * time);
-			} else if (s_visualizeMode == VisualizeMode.Total) {
-				for (int i = 0; i < 3; ++i) {
-					s_noiseVisualizeMaterial.SetTexture("_NoiseTex" + i, vapor.GetNoiseLayer(i).NoiseTexture);
-					s_noiseVisualizeMaterial.SetVector("_NoiseScale" + i, vapor.GetNoiseLayer(i).SetInvScale);
-
-					float time = (float)EditorApplication.timeSinceStartup;
-					s_noiseVisualizeMaterial.SetVector("_NoiseScroll" + i, vapor.GetNoiseLayer(i).SetScaledScrollSpeed * time);
-				}
-
-				s_noiseVisualizeMaterial.SetVector("_NoiseStrength",
-				new Vector4(vapor.GetNoiseLayer(0).Strength, vapor.GetNoiseLayer(1).Strength, vapor.GetNoiseLayer(2).Strength));
-
-				s_noiseVisualizeMaterial.SetPass(1);
-				Graphics.DrawMeshNow(s_planeMesh, Matrix4x4.TRS(position, Quaternion.identity, Vector3.one * 100.0f));
-			}
-
-			Gizmos.color = Color.white;
+			bool ret = EditorGUILayout.BeginFadeGroup(m_animBools[m_tabIndex].faded);
+			m_tabIndex++;
+			return ret;
 		}
-	
 
-		private static void DrawNoiseVisualize(NoiseLayer vapor, Vector3 position) {
-			s_noiseVisualizeMaterial.SetTexture("_NoiseTex0", vapor.NoiseTexture);
-			s_noiseVisualizeMaterial.SetColor("_Color", Gizmos.color);
-			s_noiseVisualizeMaterial.SetPass(0);
-
-			Graphics.DrawMeshNow(s_planeMesh, Matrix4x4.TRS(position, Quaternion.identity, vapor.SetScale));
+		void EndTab() {
+			EditorGUILayout.EndFadeGroup();
 		}
-			*/
+
 
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
+			m_tabIndex = 0;
 
-			EditorGUI.BeginChangeCheck();
-			PropertyField("m_setting");
-			if (EditorGUI.EndChangeCheck()) {
-				serializedObject.ApplyModifiedProperties();
-				CreateSettingsEditor();
-				serializedObject.Update();
+			var vap = target as Vapor;
+
+			if (Tab("Base Setting")) {
+				SettingsField("m_setting", "Physical properties of fog", ref m_settingEditor);
 			}
+			EndTab();
 
-			EditorGUILayout.BeginVertical("Box");
-			m_settingEditor.OnInspectorGUI();
-			EditorGUILayout.EndVertical();
-
-
-			PropertyField("Phase");
-
-			EditorGUILayout.Space();
-
-
-
-			var tab = VaporTabGroup.GetTabGroup();
-
-			if (tab.Foldout("Gradients", "Gradients", EditorStyles.boldLabel, GUILayout.Width(18.0f))) {
-				PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
+			if (Tab("Scattering Settings")) {
+				PropertyField("ScatteringIntensity", "Intensity of scattering that causes the sky color");
 
 				using (new EditorGUILayout.HorizontalScope()) {
-					Rect rect;
-					using (new EditorGUILayout.VerticalScope()) {
-						//Just for fill
-						GUILayoutUtility.GetRect(30.0f, 100.0f);
-						rect = GUILayoutUtility.GetRect(30.0f, 20.0f);
-						rect.height = 140.0f;
-						rect.yMin += 20;
+					PropertyField("ScatteringColor", "Color of the sky caused by scattering");
+					if (GUILayout.Button(new GUIContent("↺", "Reset to physical value"), GUILayout.Width(30.0f))) {
+						serializedObject.FindProperty("ScatteringColor").colorValue = Vapor.DefaultScatteringColor;
+					}
+				}
+				PropertyField("DirectionalScattering", "The directionality of the scattering - creates a 'sun'");
+				PropertyField("DirectionalScatteringColor", "The color of the directional scattering (color of the sun, multiplicative");
+
+				PropertyField("AtmosphereThickness", "KM of Atmosphere on the planet");
+			}
+			EndTab();
+
+			if (Tab("Noise Settings")) {
+				PropertyField("NoiseColorStrength", "Strength that noise multiplies color");
+				PropertyField("NoiseExtinctionStrength", "Strength that noise multiplies extinction");
+				PropertyField("NoiseWeights", "Weights of the different noise layers");
+				PropertyField("NoiseFrequency", "Frequencies of the different noise layers");
+				PropertyField("NoiseSpeed", "Movement speed of the noise");
+				PropertyField("NoisePower", "How sharp the noise is (low = soft, high = sharp");
+			}
+			EndTab();
+
+			if (Tab("Quality Settings")) {
+				using (var change = new EditorGUI.ChangeCheckScope()) {
+					m_quality = (Vapor.QualiySetting) EditorGUILayout.EnumPopup("Quality", m_quality);
+
+					if (change.changed) {
+						var xyMult = serializedObject.FindProperty("GlobalResolutionMult");
+						var zMult = serializedObject.FindProperty("DepthResolutionMult");
+
+						switch (m_quality) {
+							case Vapor.QualiySetting.Low:
+								xyMult.floatValue = 0.8f;
+								zMult.floatValue = 0.8f;
+								break;
+
+							case Vapor.QualiySetting.Medium:
+								xyMult.floatValue = 1.0f;
+								zMult.floatValue = 1.0f;
+								break;
+
+							case Vapor.QualiySetting.High:
+								xyMult.floatValue = 1.2f;
+								zMult.floatValue = 1.2f;
+								break;
+						}
 					}
 
-
-					GUIUtility.RotateAroundPivot(-90.0f, new Vector2(rect.xMin, rect.yMin));
-
-					EditorGUI.BeginChangeCheck();
-					EditorGUI.PropertyField(new Rect(rect.xMin, rect.yMin, rect.height, rect.width),
-						serializedObject.FindProperty("HeightGradient.Gradient"), new GUIContent(), true);
-					if (EditorGUI.EndChangeCheck()) {
-						BakeGradients();
+					if (m_quality == Vapor.QualiySetting.Custom) {
+						PropertyField("GlobalResolutionMult", "Nr of pixels to use in the z direction");
+						PropertyField("DepthResolutionMult", "Nr of pixels to use in the z direction");
 					}
 
-					rect = GUILayoutUtility.GetRect(0, float.MaxValue, 0, 120);
-					rect.xMax -= 25.0f;
+					int horizRes = vap.HorizontalRes;
+					int vertRes = vap.VerticalRes;
+					int depthRes = vap.DepthRes;
+					int total = horizRes * vertRes * depthRes;
 
-					GUI.matrix = Matrix4x4.identity;
-					GUI.DrawTexture(new Rect(rect.xMin, rect.yMin, rect.width, rect.height), (target as Vapor).GradientTex);
-				}
-
-				PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
-
-				using (new EditorGUILayout.HorizontalScope()) {
-					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-					GradientField("DistanceGradient.Gradient");
-					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
-				}
-			} else {
-				GUILayout.Label("Height gradient");
-				using (new EditorGUILayout.HorizontalScope()) {
-
-					PropertyField("HeightGradient.Start", "", GUILayout.Width(28.0f));
-					GradientField("HeightGradient.Gradient");
-					PropertyField("HeightGradient.End", "", GUILayout.Width(28.0f));
-				}
-
-				GUILayout.Label("Distance gradient");
-
-				using (new EditorGUILayout.HorizontalScope()) {
-					PropertyField("DistanceGradient.Start", "", GUILayout.Width(28.0f));
-					GradientField("DistanceGradient.Gradient");
-					PropertyField("DistanceGradient.End", "", GUILayout.Width(28.0f));
+					GUILayout.Label("Res: " + horizRes + ", " + vertRes + ", " + depthRes + ", Froxels: " + total + " VRAM: " +
+					                Mathf.CeilToInt(total * Vapor.BytesPerFroxel / (1024.0f * 1024.0f)) + "MB");
 				}
 			}
+			EndTab();
+
+			if (Tab("Advanced")) {
+				PropertyField("DisplayInSceneView", "");
 
 
+				PropertyField("TemporalStrength", "Strength of jitter to be applied for the temporal anti aliasing");
+				PropertyField("AveragingSpeed", "Temporal integration speed");
 
-			GUILayout.Label("Noise", EditorStyles.boldLabel);
+				PropertyField("AtmosphereRingPower", "");
+				PropertyField("AtmosphereRingSize", "");
 
-			PropertyField("NoiseBlend");
-			PropertyField("NoiseWeights");
-			PropertyField("NoiseFrequency");
-			PropertyField("NoiseSpeed");
-			PropertyField("NoisePower");
-			PropertyField("NoiseTexture");
-
-
-			/*
-			bool removed;
-			m_baseAnim.target = tab.TabArea(c_baseLayerName, s_base, false, out removed);
-			using (var group = new EditorGUILayout.FadeGroupScope(m_baseAnim.faded)) {
-				if (group.visible) {
-					NoiseFields("m_baseLayer");
-				}
+				PropertyField("DepthCurvePower", "Distribution of resolution. Lower = more far away, higher = more nearby");
 			}
+			EndTab();
 
-			m_secondaryAnim.target = tab.TabArea(c_secondaryLayerName, s_secondary, false, out removed);
-			using (var group = new EditorGUILayout.FadeGroupScope(m_secondaryAnim.faded)) {
-				if (group.visible) {
-					NoiseFields("m_secondaryLayer");
-				}
-			}
-
-			m_detailAnim.target = tab.TabArea(c_detailLayerName, s_detail, false, out removed);
-			using (var group = new EditorGUILayout.FadeGroupScope(m_detailAnim.faded)) {
-				if (group.visible) {
-					NoiseFields("m_detailLayer");
-				}
-			}
-			*/
-
-			//s_visualizeMode = (VisualizeMode)EditorGUILayout.EnumPopup("Visualize Mode", s_visualizeMode);
-
-
-			//Temporal needs to repaint game view
-
-			if (!Application.isPlaying) {
-				UnityEditorInternal.InternalEditorUtility.RepaintAllViews();
-			}
-
-			/*
-			if (GUILayout.Button("Rebake noise", EditorStyles.toolbarButton)) {
-				foreach (Vapor targ in FindObjectsOfType<Vapor>()) {
-					targ.BakeNoiseLayers();
-				}
-			}
-			*/
-
-			GUILayout.Label("Tech Settings", EditorStyles.boldLabel);
-
-			PropertyField("ShadowHardness");
-			PropertyField("ShadowBias");
-			PropertyField("AveragingSpeed");
-			PropertyField("TemporalStrength");
-			PropertyField("DepthCurvePower");
-			PropertyField("BlurSize");
 
 			serializedObject.ApplyModifiedProperties();
 
 		}
-
-		private void GradientField(string prop) {
-			EditorGUI.BeginChangeCheck();
-			PropertyField(prop, "");
-			if (EditorGUI.EndChangeCheck()) {
-				BakeGradients();
-			}
-		}
-
-		private void BakeGradients() {
-			foreach (Vapor vap in FindObjectsOfType<Vapor>()) {
-				vap.UpdateGradients();
-			}
-		}
 	}
 }
-
-/*
-if (GUI.changed) {
-	for (int index = 0; index < targets.Length; index++) {
-		var o = targets[index];
-		var t = (Vapor2) o;
-
-		t.UpdateGradientTex();
-	}
-}
-*/
-
-/*
-
-*/

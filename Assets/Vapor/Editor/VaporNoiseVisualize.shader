@@ -1,4 +1,6 @@
-﻿// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+﻿// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
 
 Shader "Hidden/VaporNoiseVisualize" {
 	Properties {
@@ -47,7 +49,7 @@ Shader "Hidden/VaporNoiseVisualize" {
 
 			v2fFog vert(appdata_full v){
 				v2fFog o;
-				o.pos =  mul(UNITY_MATRIX_MVP, v.vertex);
+				o.pos =  UnityObjectToClipPos(v.vertex);
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
 				return o;
 			}
@@ -97,7 +99,7 @@ Shader "Hidden/VaporNoiseVisualize" {
 
 			v2fFog vert(appdata_full v){
 				v2fFog o;
-				o.pos =  mul(UNITY_MATRIX_MVP, v.vertex);
+				o.pos =  UnityObjectToClipPos(v.vertex);
 				o.texcoord = float4(v.texcoord.xy, 0, 0);
 
 				o.worldPos = mul(unity_ObjectToWorld, v.vertex);

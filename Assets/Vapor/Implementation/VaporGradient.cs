@@ -7,5 +7,4 @@ public class VaporGradient {
 	public float End = 100;
 
 	public Gradient Gradient = new Gradient();
-
 }
