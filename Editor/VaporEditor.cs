@@ -15,6 +15,10 @@ namespace VaporAPI {
 				return;
 			}
 
+			if (prop.objectReferenceValue == null) {
+				prop.objectReferenceValue = Vapor.GetDefaultSetting();
+			}
+
 			if (editor == null) {
 				editor = CreateEditor(prop.objectReferenceValue);
 			}
@@ -163,25 +167,25 @@ namespace VaporAPI {
 				PropertyField("ScatteringIntensity", "Intensity of scattering that causes the sky color");
 
 				using (new EditorGUILayout.HorizontalScope()) {
-					PropertyField("ScatteringColor", "Color of the sky caused by scattering");
+					PropertyField("ScatteringColor", "Color of the sky caused by scattering. Default value is physical truth. Other values break physicality but can be used to create alien skies.");
 					if (GUILayout.Button(new GUIContent("↺", "Reset to physical value"), GUILayout.Width(30.0f))) {
 						serializedObject.FindProperty("ScatteringColor").colorValue = Vapor.DefaultScatteringColor;
 					}
 				}
-				PropertyField("DirectionalScattering", "The directionality of the scattering - creates a 'sun'");
+				PropertyField("DirectionalScattering", "The directionality of the scattering - creates the appearance of a 'sun'");
 				PropertyField("DirectionalScatteringColor", "The color of the directional scattering (color of the sun, multiplicative");
 
-				PropertyField("AtmosphereThickness", "KM of Atmosphere on the planet");
+				PropertyField("AtmosphereThickness", "KM of Atmosphere on the planet. A thinner atmosphere causes a stronger 'sunset' effect.");
 			}
 			EndTab();
 
 			if (Tab("Noise Settings")) {
-				PropertyField("NoiseColorStrength", "Strength that noise multiplies color");
-				PropertyField("NoiseExtinctionStrength", "Strength that noise multiplies extinction");
+				PropertyField("NoiseColorStrength", "Amount the noise influences the albedo of the fog");
+				PropertyField("NoiseExtinctionStrength", "Amount the noise influences the extinction of the fog");
 				PropertyField("NoiseWeights", "Weights of the different noise layers");
 				PropertyField("NoiseFrequency", "Frequencies of the different noise layers");
 				PropertyField("NoiseSpeed", "Movement speed of the noise");
-				PropertyField("NoisePower", "How sharp the noise is (low = soft, high = sharp");
+				PropertyField("NoisePower", "'Sharpness' of the noise (low = soft, high = sharp");
 			}
 			EndTab();
 
@@ -212,8 +216,8 @@ namespace VaporAPI {
 					}
 
 					if (m_quality == Vapor.QualiySetting.Custom) {
-						PropertyField("GlobalResolutionMult", "Nr of pixels to use in the z direction");
-						PropertyField("DepthResolutionMult", "Nr of pixels to use in the z direction");
+						PropertyField("GlobalResolutionMult", "Pixels to use in the z direction");
+						PropertyField("DepthResolutionMult", "Pixels to use in the z direction");
 					}
 
 					int horizRes = vap.HorizontalRes;
@@ -228,16 +232,15 @@ namespace VaporAPI {
 			EndTab();
 
 			if (Tab("Advanced")) {
-				PropertyField("DisplayInSceneView", "");
-
+				PropertyField("DisplayInSceneView", "Enable/Disable Vapor in the Scene View");
 
 				PropertyField("TemporalStrength", "Strength of jitter to be applied for the temporal anti aliasing");
 				PropertyField("AveragingSpeed", "Temporal integration speed");
 
-				PropertyField("AtmosphereRingPower", "");
-				PropertyField("AtmosphereRingSize", "");
+				PropertyField("AtmosphereRingPower", "Sharpness of atmosphere ring around the sun");
+				PropertyField("AtmosphereRingSize", "Size of the atmosphere ring around the sun");
 
-				PropertyField("DepthCurvePower", "Distribution of resolution. Lower = more far away, higher = more nearby");
+				PropertyField("DepthCurvePower", "Distribution of voxels. Lower -> more voxels far away, higher -> more voxels nearby");
 			}
 			EndTab();
 

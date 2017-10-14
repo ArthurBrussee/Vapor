@@ -28,16 +28,20 @@ public class Vapor : MonoBehaviour {
 	public VaporSetting Setting {
 		get {
 			if (m_setting == null) {
-				m_setting = Resources.Load<VaporSetting>("DefaultVaporSetting");
+				m_setting = GetDefaultSetting();
 			}
 			return m_setting;
 		}
 	}
 
+	public static VaporSetting GetDefaultSetting() {
+		return Resources.Load<VaporSetting>("DefaultVaporSetting");
+	}
+
 	public VaporSetting BlendToSetting {
 		get {
 			if (m_blendToSetting == null) {
-				m_blendToSetting = Resources.Load<VaporSetting>("DefaultVaporSetting");
+				m_blendToSetting = GetDefaultSetting();
 			}
 
 			return m_blendToSetting;
