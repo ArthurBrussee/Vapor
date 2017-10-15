@@ -43,7 +43,8 @@ Vapor uses a volume texture that is lower than the resolution of the screen. Thi
 Vapor renders fog up until the far plane. The further the far plane is, the more coarse the fog will be calculated. Currently there is no way to set a seperate far plane for Vapor and your camera. The distribution of voxels used nearby / far away can be set by the 'depth curve power' parameter.
 
 **Inspector** 
-For more information each field has a tooltip.
+
+Each field has a tooltip describing it's function. The UX has been designed to make it easy to set up consistent looking fog.
 
 ![Inspector](http://g2f.nl/0kgx1ek)
 
