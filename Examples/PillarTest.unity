@@ -18917,8 +18917,8 @@ MonoBehaviour:
   AtmosphereThickness: 100
   AtmosphereRingPower: 15
   AtmosphereRingSize: 10
-  AveragingSpeed: 1
-  TemporalStrength: 0
+  AveragingSpeed: 0.2
+  TemporalStrength: 0.11
   DepthCurvePower: 4
   NoiseColorStrength: 0
   NoiseExtinctionStrength: 0
@@ -18948,7 +18948,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 2
   stopNaNPropagation: 1
-  antialiasingMode: 0
+  antialiasingMode: 3
   temporalAntialiasing:
     jitterSpread: 0.75
     sharpness: 0.25

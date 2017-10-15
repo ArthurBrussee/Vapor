@@ -243,12 +243,16 @@ void Scatter(uint3 id : SV_DispatchThreadID) {
 	
 	float4 fogProps = _DensityTexture.SampleLevel(MyLinearClampSampler, uv, 0.0f);
 
+	//TODO: Only read this if we know it's written somewhere?
+	//TODO: Can we integrate main directional light here directly? Would save a pass
+	//Combined would mean we can skip the entire LightRead pipeline
+
 	float3 directLight = float3(
 		_LightReadR.SampleLevel(MyLinearClampSampler, uv, 0.0f),
 		_LightReadG.SampleLevel(MyLinearClampSampler, uv, 0.0f),
 		_LightReadB.SampleLevel(MyLinearClampSampler, uv, 0.0f) 
 		);
-
+	
 	//TODO: Emissive should come from texture...
 	fogProps.rgb *= (directLight + _Emissive.rgb);
 
@@ -297,8 +301,6 @@ inline void IntegrateClear(uint3 id : SV_DispatchThreadID) {
 	_IntegratedTexture[id] = float4(0, 0, 0, 1);
 }
 
-
-
 void WriteLight(uint3 pos, float3 val) {
 	_LightAccumR[pos] = val.r;
 	_LightAccumG[pos] = val.g;
@@ -312,16 +314,16 @@ void WriteLightAdd(uint3 pos, float3 val) {
 }
 
 void LightDirectionalMain(uint3 id : SV_DispatchThreadID) {
-	//Jitter directional too!
 	float3 uv = IDToUv(id, GetJitter(id));
+
 	float3 device = UvToVaporDevice(uv);
+	
 	float zLocal = VaporDeviceToEyeDepth(device.z);
 	float3 worldPos = VaporDeviceToWorld(device);
 
-	float3 camDif = _CameraPos.xyz - worldPos;
 	float shadow = GetShadow(worldPos, zLocal);
-
 	float3 scatter = GetRayleighDir(worldPos, _LightPosRange.xyz,  _LightColor.rgb);
+	
 	WriteLight(id, scatter * shadow);
 }
 
