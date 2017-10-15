@@ -14,35 +14,20 @@ MonoBehaviour:
   Albedo: {r: 0.34465465, g: 0.5294118, b: 0.097318344, a: 1}
   Extinction: 5
   Emissive: {r: 0.6365518, g: 1.42, b: 0, a: 1}
-  AmbientLight: {r: 0, g: 0, b: 0, a: 1}
+  AmbientLight: {r: 1, g: 1, b: 1, a: 1}
   HeightGradient:
     Start: 0
     End: 1000
     Gradient:
-      key0:
-        serializedVersion: 2
-        rgba: 4294967295
-      key1:
-        serializedVersion: 2
-        rgba: 4294904832
-      key2:
-        serializedVersion: 2
-        rgba: 0
-      key3:
-        serializedVersion: 2
-        rgba: 0
-      key4:
-        serializedVersion: 2
-        rgba: 0
-      key5:
-        serializedVersion: 2
-        rgba: 0
-      key6:
-        serializedVersion: 2
-        rgba: 0
-      key7:
-        serializedVersion: 2
-        rgba: 0
+      serializedVersion: 2
+      key0: {r: 1, g: 1, b: 1, a: 1}
+      key1: {r: 0.6764706, g: 0.6916954, b: 1, a: 1}
+      key2: {r: 0, g: 0, b: 0, a: 0}
+      key3: {r: 0, g: 0, b: 0, a: 0}
+      key4: {r: 0, g: 0, b: 0, a: 0}
+      key5: {r: 0, g: 0, b: 0, a: 0}
+      key6: {r: 0, g: 0, b: 0, a: 0}
+      key7: {r: 0, g: 0, b: 0, a: 0}
       ctime0: 0
       ctime1: 65535
       ctime2: 0
@@ -59,36 +44,22 @@ MonoBehaviour:
       atime5: 0
       atime6: 0
       atime7: 0
+      m_Mode: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 3
   DistanceGradient:
     Start: 0
     End: 100
     Gradient:
-      key0:
-        serializedVersion: 2
-        rgba: 4294967295
-      key1:
-        serializedVersion: 2
-        rgba: 4294967295
-      key2:
-        serializedVersion: 2
-        rgba: 0
-      key3:
-        serializedVersion: 2
-        rgba: 0
-      key4:
-        serializedVersion: 2
-        rgba: 0
-      key5:
-        serializedVersion: 2
-        rgba: 0
-      key6:
-        serializedVersion: 2
-        rgba: 0
-      key7:
-        serializedVersion: 2
-        rgba: 0
+      serializedVersion: 2
+      key0: {r: 1, g: 1, b: 1, a: 1}
+      key1: {r: 1, g: 1, b: 1, a: 1}
+      key2: {r: 0, g: 0, b: 0, a: 0}
+      key3: {r: 0, g: 0, b: 0, a: 0}
+      key4: {r: 0, g: 0, b: 0, a: 0}
+      key5: {r: 0, g: 0, b: 0, a: 0}
+      key6: {r: 0, g: 0, b: 0, a: 0}
+      key7: {r: 0, g: 0, b: 0, a: 0}
       ctime0: 0
       ctime1: 65535
       ctime2: 0
@@ -105,5 +76,6 @@ MonoBehaviour:
       atime5: 0
       atime6: 0
       atime7: 0
+      m_Mode: 0
       m_NumColorKeys: 2
       m_NumAlphaKeys: 2

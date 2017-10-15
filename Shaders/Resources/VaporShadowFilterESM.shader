@@ -22,8 +22,6 @@
 
 
 				float4 frag(v2f IN) : COLOR{
-
-
 					float depth = _ShadowMap.SampleLevel(sampler_ShadowMap, IN.uv, 0).r;
 
 					//Disabled atm
