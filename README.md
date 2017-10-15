@@ -58,8 +58,8 @@ Any contributions are greatly appreciated! Feel free to raise issues, and any pu
 **Credits**
 
 Thanks to everyone at RUST ltd for making this release happen.
-Anton Hand - UX Advise, testing
-Joshua Ols - Alloy integration and shader advice
-Luke Noonan & Lucas Miller - Marketing, logo and website
+- Anton Hand - UX Advise, testing
+- Joshua Ols - Alloy integration and shader advice
+- Luke Noonan & Lucas Miller - Marketing, logo and website
 
 http://vapor.rustltd.com/
