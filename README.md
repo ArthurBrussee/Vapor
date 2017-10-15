@@ -55,4 +55,11 @@ There are lots of performance improvments to still be done. There are also some 
 
 Any contributions are greatly appreciated! Feel free to raise issues, and any pull requests will be reviewed.
 
+**Credits**
+
+Thanks to everyone at RUST ltd for making this release happen.
+Anton Hand - UX Advise, testing
+Joshua Ols - Alloy integration and shader advice
+Luke Noonan & Lucas Miller - Marketing, logo and website
+
 http://vapor.rustltd.com/
