@@ -40,6 +40,8 @@ Vapor currently works best with deferred rendering. To use vapor on Transparent 
 
 Vapor uses a volume texture that is lower than the resolution of the screen. This can cause some aliasing artifacts particularly in shadow borders. To alleviate this Vapor uses temporal anti aliasing on the volume texture, but this can cause streaking artifacts. There are parameters to control the tradeoff of these different artifacts.
 
+Vapor renders fog up until the far plane. The further the far plane is, the more coarse the fog will be calculated. Currently there is no way to set a seperate far plane for Vapor and your camera. The distribution of voxels used nearby / far away can be set by the 'depth curve power' parameter.
+
 **Inspector** 
 For more information each field has a tooltip.
 
