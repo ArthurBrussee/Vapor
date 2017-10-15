@@ -47,6 +47,10 @@ For more information each field has a tooltip.
 
 ![Inspector](http://g2f.nl/0kgx1ek)
 
+**Roadmap**
+
+There are lots of performance improvments to still be done. There are also some problems with the temportal filtering to be adressed. Long term the goal is to have Vapor simulate nearby fog with high fidelity, while still being accurate enough to produce a physically based skybox in the distance.
+
 **Contributing**
 
 Any contributions are greatly appreciated! Feel free to raise issues, and any pull requests will be reviewed.
