@@ -1,6 +1,7 @@
-# Vapor
-Vapor is a Volumetric Fog system for Unity based on work by [Bart Wronski](https://bartwronski.files.wordpress.com/2014/08/bwronski_volumetric_fog_siggraph2014.pdf) and research from [Frostbite](https://www.slideshare.net/DICEStudio/physically-based-and-unified-volumetric-rendering-in-frostbite)
-It was originally written to be an asset store asset, but as it never quite panned out it is now released under an MIT license on github!
+![Vapor Logo](http://vapor.rustltd.com/img/logo.png)
+
+Vapor is a Volumetric Fog system for Unity to add atmospheric lighting to any scene. It is based on work by [Bart Wronski](https://bartwronski.files.wordpress.com/2014/08/bwronski_volumetric_fog_siggraph2014.pdf) and research from [Frostbite](https://www.slideshare.net/DICEStudio/physically-based-and-unified-volumetric-rendering-in-frostbite)
+It was originally written to be an asset store asset, but as it never quite panned out it is now released open source with a MIT license!
 
 **Features**
 
@@ -10,13 +11,19 @@ It was originally written to be an asset store asset, but as it never quite pann
 - Performance minded
 - Optimized for Single Pass VR (<1ms on a 980 TI on a vive)
 
+
+![Vapor Pillars](http://g2f.nl/0dsh5mz)
+
+
 **Setup**
 
-To use Vapor add the Vapor component to your main camera. Unity lights that should scatter into the fog should have a vapor light component.
+To use Vapor add the Vapor component to your main camera. Unity lights that you want to scatter into the fog should have a vapor light component.
 
 **Presets**
 
 Vapor Presets are a collection of physical fog settings to easily switch between fog settings. A few presets are included by default for different types of fog. Vapor Zones also link to a preset for their physical fog settings.
+
+![Sponza](http://g2f.nl/0552cy4)
 
 **Scripting**
 
@@ -31,5 +38,15 @@ Vapor uses a volumtric fog texture to render the fog into. The resolution of thi
 
 Vapor currently works best with deferred rendering. To use vapor on Transparent objects or in Forward rendering mode, shaders should use the VaporStandard shader. Additionally, all Alloy Shader Framework shaders support Vapor. If you use your own custom shaders you will need to integrate the Vapor code into these shaders, see Vapor.cginc for more details. Integrating into custom surface shaders is not supported t the moment.
 
+Vapor uses a volume texture that is lower than the resolution of the screen. This can cause some aliasing artifacts particularly in shadow borders. To alleviate this Vapor uses temporal anti aliasing on the volume texture, but this can cause streaking artifacts. There are parameters to control the tradeoff of these different artifacts.
+
+**Inspector** 
+For more information each field has a tooltip.
+
+![Inspector](http://g2f.nl/0kgx1ek)
+
 **Contributing**
+
 Any contributions are greatly appreciated! Feel free to raise issues, and any pull requests will be reviewed.
+
+http://vapor.rustltd.com/
