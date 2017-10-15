@@ -18889,8 +18889,8 @@ Transform:
   m_PrefabParentObject: {fileID: 0}
   m_PrefabInternal: {fileID: 0}
   m_GameObject: {fileID: 999448788}
-  m_LocalRotation: {x: -0.00063242624, y: -0.99652207, z: -0.08299294, w: 0.0074513927}
-  m_LocalPosition: {x: -0.3283925, y: 7.711173, z: 18.125309}
+  m_LocalRotation: {x: 0.00042032416, y: -0.99910057, z: -0.041078355, w: -0.010512769}
+  m_LocalPosition: {x: -0.51300883, y: 7.0856514, z: 18.71868}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children: []
   m_Father: {fileID: 0}
@@ -18917,7 +18917,7 @@ MonoBehaviour:
   AtmosphereThickness: 100
   AtmosphereRingPower: 15
   AtmosphereRingSize: 10
-  AveragingSpeed: 0.1
+  AveragingSpeed: 1
   TemporalStrength: 0
   DepthCurvePower: 4
   NoiseColorStrength: 0
@@ -18928,8 +18928,8 @@ MonoBehaviour:
   NoisePower: 2.5
   NoiseTexture: {fileID: 2800000, guid: cdf53ac2282bb2843aa39f4960585a89, type: 3}
   SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
-  GlobalResolutionMult: 1.5
-  DepthResolutionMult: 1.5
+  GlobalResolutionMult: 1
+  DepthResolutionMult: 1
   ShadersHaveVaporIntegrated: 1
   DisplayInSceneView: 1
 --- !u!114 &999448795
@@ -18948,7 +18948,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 2
   stopNaNPropagation: 1
-  antialiasingMode: 3
+  antialiasingMode: 0
   temporalAntialiasing:
     jitterSpread: 0.75
     sharpness: 0.25

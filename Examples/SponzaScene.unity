@@ -26,7 +26,7 @@ RenderSettings:
   m_AmbientIntensity: 5
   m_AmbientMode: 0
   m_SubtractiveShadowColor: {r: 0.42, g: 0.478, b: 0.627, a: 1}
-  m_SkyboxMaterial: {fileID: 10304, guid: 0000000000000000f000000000000000, type: 0}
+  m_SkyboxMaterial: {fileID: 2100000, guid: 6de25832bc6101547805d7aa93b48d04, type: 2}
   m_HaloStrength: 0.5
   m_FlareStrength: 1
   m_FlareFadeSpeed: 3
@@ -24235,13 +24235,13 @@ MonoBehaviour:
   m_blendTime: 0
   DirectionalScattering: 0.951
   DirectionalScatteringColor: {r: 1, g: 1, b: 1, a: 1}
-  ScatteringIntensity: 17.99
+  ScatteringIntensity: 10
   ScatteringColor: {r: 0.30769232, g: 0.3773585, b: 0.4347826, a: 200}
   AtmosphereThickness: 10
   AtmosphereRingPower: 15
   AtmosphereRingSize: 10
-  AveragingSpeed: 0.1
-  TemporalStrength: 0.31
+  AveragingSpeed: 0.01
+  TemporalStrength: 0.635
   DepthCurvePower: 4
   NoiseColorStrength: 0
   NoiseExtinctionStrength: 0

@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Name: SponzaFog
   m_EditorClassIdentifier: 
   Albedo: {r: 0.77768165, g: 0.87847507, b: 0.9117647, a: 1}
-  Extinction: -1.42
+  Extinction: 2
   Emissive: {r: 0, g: 0, b: 0, a: 1}
   AmbientLight: {r: 0.2352941, g: 0.2352941, b: 0.2352941, a: 0.93818957}
   HeightGradient:

@@ -16,7 +16,7 @@ namespace VaporAPI {
 			}
 
 			if (prop.objectReferenceValue == null) {
-				prop.objectReferenceValue = Vapor.GetDefaultSetting();
+				prop.objectReferenceValue = Vapor.DefaultSetting;
 			}
 
 			if (editor == null) {

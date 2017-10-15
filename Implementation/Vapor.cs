@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using VaporAPI;
 using UnityEngine.Profiling;
+using UnityEngine.Rendering.PostProcessing;
 using Random = UnityEngine.Random;
 
 #if UNITY_EDITOR
@@ -23,25 +24,36 @@ public class Vapor : MonoBehaviour {
 	[SerializeField] [Tooltip("Physical properties of the fog")] VaporSetting m_setting;
 	[Tooltip("Properties to blend towards controlled by the blend time")] [SerializeField] VaporSetting m_blendToSetting;
 	[SerializeField] [Range(0.0f, 1.0f)] float m_blendTime;
+
+	/// <summary>
+	/// Lerp factor between <see cref="Setting"/> and <see cref="BlendToSetting"/>
+	/// </summary>
 	public float BlendTime { get { return m_blendTime; } set { m_blendTime = Mathf.Clamp01(value); } }
 
+	/// <summary>
+	/// Current blend setting. Control blending with <see cref="BlendTime"/>
+	/// </summary>
 	public VaporSetting Setting {
 		get {
 			if (m_setting == null) {
-				m_setting = GetDefaultSetting();
+				m_setting = DefaultSetting;
 			}
 			return m_setting;
 		}
 	}
 
-	public static VaporSetting GetDefaultSetting() {
-		return Resources.Load<VaporSetting>("DefaultVaporSetting");
-	}
+	/// <summary>
+	/// Default Vapor setting
+	/// </summary>
+	public static VaporSetting DefaultSetting { get { return Resources.Load<VaporSetting>("DefaultVaporSetting"); } }
 
+	/// <summary>
+	/// Target blend setting. Control blending with <see cref="BlendTime"/>
+	/// </summary>
 	public VaporSetting BlendToSetting {
 		get {
 			if (m_blendToSetting == null) {
-				m_blendToSetting = GetDefaultSetting();
+				m_blendToSetting = DefaultSetting;
 			}
 
 			return m_blendToSetting;
@@ -52,6 +64,7 @@ public class Vapor : MonoBehaviour {
 
 	[Range(0.0f, 1.0f)]
 	public float DirectionalScattering;
+
 	public Color DirectionalScatteringColor = Color.white * 0.5f;
 
 	public float ScatteringIntensity = 1.0f;
@@ -63,8 +76,9 @@ public class Vapor : MonoBehaviour {
 	public float AveragingSpeed = 0.2f;
 	[Range(0.0f, 2.0f)] public float TemporalStrength = 0.5f;
 	public float DepthCurvePower = 4.0f;
-	[Range(0.0f, 1.0f)] public float NoiseColorStrength = 0.0f;
-	[Range(0.0f, 1.0f)] public float NoiseExtinctionStrength = 0.0f;
+
+	[Range(0.0f, 1.0f)] public float NoiseColorStrength;
+	[Range(0.0f, 1.0f)] public float NoiseExtinctionStrength;
 
 	public Vector3 NoiseWeights = new Vector3(5.0f, 2.0f, 1.0f);
 	public Vector3 NoiseFrequency = new Vector3(0.1f, 0.2f, 0.5f);
@@ -79,21 +93,34 @@ public class Vapor : MonoBehaviour {
 	BoundingSphere[] m_spheres = new BoundingSphere[64];
 	Camera m_camera;
 
-	[Range(0.5f, 1.5f)] public float GlobalResolutionMult = 1.0f;
-	[Range(0.5f, 1.5f)] public float DepthResolutionMult = 1.0f;
+	[Range(0.5f, 2.0f)] public float GlobalResolutionMult = 1.0f;
+	[Range(0.5f, 2.0f)] public float DepthResolutionMult = 1.0f;
 
+	/// <summary>
+	/// Whether or not Forward shaders have the proper Vapor integration. Disable to revert to using a fullscreen pass to apply Vapor
+	/// </summary>
 	public bool ShadersHaveVaporIntegrated = true;
+
 	public bool DisplayInSceneView;
 
 	const int c_defaultHorizontalRes = 160;
 	const int c_defaultDepthRes = 128;
 
+	/// <summary>
+	/// Nr. of pixels horizontally in the volume texture
+	/// </summary>
 	public int HorizontalRes { get { return Mathf.RoundToInt(c_defaultHorizontalRes * GlobalResolutionMult / 8.0f) * 8; } }
 
+	/// <summary>
+	/// Nr. of pixels vertically in the volume texture
+	/// </summary>
 	public int VerticalRes {
 		get { return Mathf.RoundToInt(c_defaultHorizontalRes * 9.0f / 16.0f * GlobalResolutionMult / 8.0f) * 8; }
 	}
 
+	/// <summary>
+	/// Nr. of pixels in depth direction in the volume texture
+	/// </summary>
 	public int DepthRes {
 		get { return Mathf.RoundToInt(c_defaultDepthRes * GlobalResolutionMult * DepthResolutionMult / 8.0f) * 8; }
 	}
@@ -123,11 +150,10 @@ public class Vapor : MonoBehaviour {
 
 	int m_densityKernel;
 
-	[NonSerialized] public int ZoneKernel;
-	[NonSerialized] public int LightPointKernel;
-
-	public VaporKernel LightSpotKernel;
-	public VaporKernel LightDirKernel;
+	[NonSerialized] internal int ZoneKernel;
+	[NonSerialized] internal int LightPointKernel;
+	[NonSerialized] internal VaporKernel LightSpotKernel;
+	[NonSerialized] internal VaporKernel LightDirKernel;
 
 	int m_scatterKernel;
 	int m_integrateKernel;
@@ -142,6 +168,9 @@ public class Vapor : MonoBehaviour {
 
 	bool m_instant;
 	List<Vector3> m_worldBounds = new List<Vector3>();
+
+	int m_sampleIndex;
+	const int c_sampleCount = 8;
 
 	void OnEnable() {
 		m_camera = GetComponent<Camera>();
@@ -208,10 +237,7 @@ public class Vapor : MonoBehaviour {
 		tex.Create();
 	}
 
-	int m_sampleIndex;
-	const int c_sampleCount = 8;
-
-	//Taken from Unity TAA
+	//TODO: This jitter doesn't seem ideal
 	float GetHaltonValue(int index, int radix) {
 		float result = 0f;
 		float fraction = 1f / (float)radix;
@@ -225,6 +251,7 @@ public class Vapor : MonoBehaviour {
 
 		return result;
 	}
+
 	Vector2 GenerateRandomOffset() {
 		var offset = new Vector2(
 				GetHaltonValue(m_sampleIndex & 1023, 2),
@@ -332,7 +359,7 @@ public class Vapor : MonoBehaviour {
 		}
 	}
 
-	public void InjectObject(Matrix4x4 viewProj, int kernel, VaporObject obj) {
+	internal void InjectObject(Matrix4x4 viewProj, int kernel, VaporObject obj) {
 		if (kernel == -1) {
 			return;
 		}
@@ -368,36 +395,36 @@ public class Vapor : MonoBehaviour {
 		return new Vector4(near, far, far - near, near * far);
 	}
 
-	// Adapted heavily from PlayDead's TAA code
-	// https://github.com/playdeadgames/temporal/blob/master/Assets/Scripts/Extensions.cs
-	Matrix4x4 GetPerspectiveProjectionMatrix(Vector2 offset) {
-		float vertical = Mathf.Tan(0.5f * Mathf.Deg2Rad * m_camera.fieldOfView);
-		float horizontal = vertical * m_camera.aspect;
+	public static Matrix4x4 GetJitteredMatrix(Camera camera, Vector2 offset) {
+		float vertical = Mathf.Tan(0.5f * Mathf.Deg2Rad * camera.fieldOfView);
+		float horizontal = vertical * camera.aspect;
+		float near = camera.nearClipPlane;
+		float far = camera.farClipPlane;
 
-		offset.x *= horizontal / (0.5f * m_camera.pixelWidth);
-		offset.y *= vertical / (0.5f * m_camera.pixelHeight);
+		offset.x *= horizontal / (0.5f * camera.pixelWidth);
+		offset.y *= vertical / (0.5f * camera.pixelHeight);
 
-		float left = (offset.x - horizontal) * m_camera.nearClipPlane;
-		float right = (offset.x + horizontal) * m_camera.nearClipPlane;
-		float top = (offset.y + vertical) * m_camera.nearClipPlane;
-		float bottom = (offset.y - vertical) * m_camera.nearClipPlane;
+		float left = (offset.x - horizontal) * near;
+		float right = (offset.x + horizontal) * near;
+		float top = (offset.y + vertical) * near;
+		float bottom = (offset.y - vertical) * near;
 
 		var matrix = new Matrix4x4();
 
-		matrix[0, 0] = (2f * m_camera.nearClipPlane) / (right - left);
+		matrix[0, 0] = (2f * near) / (right - left);
 		matrix[0, 1] = 0f;
 		matrix[0, 2] = (right + left) / (right - left);
 		matrix[0, 3] = 0f;
 
 		matrix[1, 0] = 0f;
-		matrix[1, 1] = (2f * m_camera.nearClipPlane) / (top - bottom);
+		matrix[1, 1] = (2f * near) / (top - bottom);
 		matrix[1, 2] = (top + bottom) / (top - bottom);
 		matrix[1, 3] = 0f;
 
 		matrix[2, 0] = 0f;
 		matrix[2, 1] = 0f;
-		matrix[2, 2] = -(m_camera.farClipPlane + m_camera.nearClipPlane) / (m_camera.farClipPlane - m_camera.nearClipPlane);
-		matrix[2, 3] = -(2f * m_camera.farClipPlane * m_camera.nearClipPlane) / (m_camera.farClipPlane - m_camera.nearClipPlane);
+		matrix[2, 2] = -(far + near) / (far - near);
+		matrix[2, 3] = -(2f * far * near) / (far - near);
 
 		matrix[3, 0] = 0f;
 		matrix[3, 1] = 0f;
@@ -448,7 +475,7 @@ public class Vapor : MonoBehaviour {
 		Vector2 jitter = GenerateRandomOffset();
 		jitter *= (TemporalStrength * 10);
 
-		Matrix4x4 p = GetPerspectiveProjectionMatrix(jitter);
+		Matrix4x4 p = GetJitteredMatrix(m_camera, jitter);
 		Matrix4x4 vp = p * v;
 
 		//Set VP from old frame for reprojection
