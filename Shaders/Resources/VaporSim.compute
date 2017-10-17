@@ -99,7 +99,6 @@ float4 _Atmosphere;
 
 float _LambertBeerDensity;
 
-
 //Noise settings
 float _NoisePower;
 float4 _NoiseSpeed;
@@ -117,7 +116,6 @@ float _ZoneRadiusSqr;
 Texture2D _BlueNoise;
 
 #define PI 3.141592657f
-
 
 
 float3 IDToUv(uint3 id, float zcenter) {
@@ -223,7 +221,6 @@ float3 GetRayleigh(float3 worldPos, float3 lightDif, float3 lightColor) {
 	return (rayleighLight + PI / 4) * lightColor;
 }
 
-
 float GetFaloff(float3 dd, float range) {
 	float lightDistanceSqr = dot(dd, dd);
 	float ratio2 = lightDistanceSqr * range;
@@ -251,15 +248,15 @@ void Scatter(uint3 id : SV_DispatchThreadID) {
 		_LightReadR.SampleLevel(MyLinearClampSampler, uv, 0.0f),
 		_LightReadG.SampleLevel(MyLinearClampSampler, uv, 0.0f),
 		_LightReadB.SampleLevel(MyLinearClampSampler, uv, 0.0f) 
-		);
+	);
 	
 	//TODO: Emissive should come from texture...
 	fogProps.rgb *= (directLight + _Emissive.rgb);
 
 	float3 device = UvToVaporDevice(uv);
+	
 	//Reprojection
 	float4 frustum = mul(_VAPOR_REPROJECT, float4(device, 1.0f));
-
 	float3 oldUv = VaporDeviceToUv(frustum.xyz);
 	float expWeight = any(oldUv - saturate(oldUv)) ? 1.0f : _ExponentialWeight;
 
@@ -369,6 +366,7 @@ void LightSpotMain(uint3 id : SV_DispatchThreadID) {
 			float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
 			faloff *= saturate(depth * exp(-_ShadowSoft * saturate(shadowCoord.z)));
 #endif
+
 			float4 cookie = _SpotCookie.SampleLevel(sampler_SpotCookie, lightCoord.xy / lightCoord.w + 0.5f, 0.0f);
 			float3 scatter = GetRayleigh(worldPos, dd, _LightColor.rgb * cookie.rgb * cookie.a);
 			WriteLightAdd(id, faloff * scatter);

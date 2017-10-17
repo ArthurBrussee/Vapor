@@ -189,6 +189,7 @@ public class Vapor : MonoBehaviour {
 		m_integrateKernel = m_vaporCompute.FindKernel("Integrate");
 		m_integrateClearKernel = m_vaporCompute.FindKernel("IntegrateClear");
 		m_fogMat = new Material(Shader.Find("Hidden/VaporPost"));
+		m_fogMat.hideFlags = HideFlags.HideAndDontSave;
 
 		m_blueNoiseTex = Resources.Load<Texture2D>("BlueNoise");
 
@@ -240,13 +241,12 @@ public class Vapor : MonoBehaviour {
 	//TODO: This jitter doesn't seem ideal
 	float GetHaltonValue(int index, int radix) {
 		float result = 0f;
-		float fraction = 1f / (float)radix;
+		float fraction = 1.0f / radix;
 
 		while (index > 0) {
-			result += (float)(index % radix) * fraction;
-
+			result += index % radix * fraction;
 			index /= radix;
-			fraction /= (float)radix;
+			fraction /= radix;
 		}
 
 		return result;
@@ -395,7 +395,7 @@ public class Vapor : MonoBehaviour {
 		return new Vector4(near, far, far - near, near * far);
 	}
 
-	public static Matrix4x4 GetJitteredMatrix(Camera camera, Vector2 offset) {
+	static Matrix4x4 GetJitteredMatrix(Camera camera, Vector2 offset) {
 		float vertical = Mathf.Tan(0.5f * Mathf.Deg2Rad * camera.fieldOfView);
 		float horizontal = vertical * camera.aspect;
 		float near = camera.nearClipPlane;
@@ -410,8 +410,7 @@ public class Vapor : MonoBehaviour {
 		float bottom = (offset.y - vertical) * near;
 
 		var matrix = new Matrix4x4();
-
-		matrix[0, 0] = (2f * near) / (right - left);
+		matrix[0, 0] = 2f * near / (right - left);
 		matrix[0, 1] = 0f;
 		matrix[0, 2] = (right + left) / (right - left);
 		matrix[0, 3] = 0f;
@@ -462,18 +461,9 @@ public class Vapor : MonoBehaviour {
 			m_vaporCompute.SetVector("_ShadowRange", new Vector4(0.5f, 0.5f));
 		}
 
-
-		Matrix4x4 v;
-		if (Camera.current.stereoEnabled) {
-			v = m_camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left);
-		}
-		else {
-			v = m_camera.worldToCameraMatrix;
-		}
-
-
+		Matrix4x4 v = Camera.current.stereoEnabled ? m_camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left) : m_camera.worldToCameraMatrix;
 		Vector2 jitter = GenerateRandomOffset();
-		jitter *= (TemporalStrength * 10);
+		jitter *= TemporalStrength * 10;
 
 		Matrix4x4 p = GetJitteredMatrix(m_camera, jitter);
 		Matrix4x4 vp = p * v;
@@ -548,9 +538,9 @@ public class Vapor : MonoBehaviour {
 
 			Vector3 rayleighCross = rayleighBase * 24 * Mathf.Pow(Mathf.PI, 3.0f);
 
-			rayleighCross.x = (float) (Math.Pow(1.0 - rayleighCross.x, 1000));
-			rayleighCross.y = (float) (Math.Pow(1.0 - rayleighCross.y, 1000));
-			rayleighCross.z = (float) (Math.Pow(1.0 - rayleighCross.z, 1000));
+			rayleighCross.x = (float) Math.Pow(1.0 - rayleighCross.x, 1000);
+			rayleighCross.y = (float) Math.Pow(1.0 - rayleighCross.y, 1000);
+			rayleighCross.z = (float) Math.Pow(1.0 - rayleighCross.z, 1000);
 
 			m_vaporCompute.SetVector("_Rayleigh", rayleighWeight * 1e5f);
 			m_vaporCompute.SetVector("_RayleighCross", rayleighCross);

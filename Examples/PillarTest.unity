@@ -9756,7 +9756,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ae4f309409cd43b4282492d8bb7b98c1, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  FogScatterIntensity: 5.32
+  FogScatterIntensity: 3
   ShadowBlur: 2
   SpotBaseSize: 0.3
 --- !u!1001 &530581617
@@ -18917,8 +18917,8 @@ MonoBehaviour:
   AtmosphereThickness: 100
   AtmosphereRingPower: 15
   AtmosphereRingSize: 10
-  AveragingSpeed: 0.2
-  TemporalStrength: 0.11
+  AveragingSpeed: 0.1
+  TemporalStrength: 0.329
   DepthCurvePower: 4
   NoiseColorStrength: 0
   NoiseExtinctionStrength: 0
@@ -18928,8 +18928,8 @@ MonoBehaviour:
   NoisePower: 2.5
   NoiseTexture: {fileID: 2800000, guid: cdf53ac2282bb2843aa39f4960585a89, type: 3}
   SpotCookie: {fileID: 2800000, guid: 67a6def6238ca2b4da47519fe8f68660, type: 3}
-  GlobalResolutionMult: 1
-  DepthResolutionMult: 1
+  GlobalResolutionMult: 1.2
+  DepthResolutionMult: 1.2
   ShadersHaveVaporIntegrated: 1
   DisplayInSceneView: 1
 --- !u!114 &999448795
