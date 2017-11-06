@@ -32,7 +32,7 @@ If you need zones with different fog settings (eg. when you have different fog s
 
 **Performance**
 
-Vapor uses a volumtric fog texture to render the fog into. The resolution of this texture is the determining factor for Vapor's performance. In forward rendering shaders directly sample from this volume texture, in deferred an additional fullscreen pass is done to apply the fog. 
+Vapor uses a volumetric fog texture to render the fog into. The resolution of this texture is the determining factor for Vapor's performance. In forward rendering shaders directly sample from this volume texture, in deferred an additional fullscreen pass is done to apply the fog. 
 
 **Limitations**
 
