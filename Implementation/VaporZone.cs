@@ -6,8 +6,9 @@ using VaporAPI;
 public class VaporZone : VaporObject {
 	public Vector3 Size = Vector3.one;
 	public float Radius = 0.05f;
-	[SerializeField] private VaporSetting m_setting;
+	[SerializeField] VaporSetting m_setting;
 
+	public override float CullRange { get { return Size.magnitude + Radius; } }
 
 	public VaporSetting Setting {
 		get {
@@ -54,6 +55,4 @@ public class VaporZone : VaporObject {
 		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, Size.z)) - right + up + forward);
 		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, Size.z)) - right - up + forward);
 	}
-
-	public override float CullRange { get { return Size.magnitude + Radius; } }
 }

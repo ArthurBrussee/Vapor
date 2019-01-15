@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 public struct VaporKernel {
-	private int[] m_kern;
+	int[] m_kern;
 
 	public enum ShadowMode {
 		None,

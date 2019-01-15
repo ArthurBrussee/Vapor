@@ -24,8 +24,6 @@ namespace VaporAPI {
 		}
 
 		public abstract void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj);
-
-
 		public abstract void GetBounds(Transform space, List<Vector3> cameraWorldBounds);
 		public abstract float CullRange { get; }
 	}

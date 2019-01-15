@@ -8,7 +8,7 @@ using VaporAPI;
 public class VaporLight : VaporObject {
 	static Mesh s_quadMesh;
 
-	public static Mesh QuadMesh {
+	static Mesh QuadMesh {
 		get {
 			if (s_quadMesh == null) {
 				var go = GameObject.CreatePrimitive(PrimitiveType.Quad);
@@ -22,7 +22,7 @@ public class VaporLight : VaporObject {
 
 	static Material s_shadowFilterMaterial;
 
-	public static Material ShadowFilterMaterial {
+	static Material ShadowFilterMaterial {
 		get {
 			if (s_shadowFilterMaterial == null) {
 				s_shadowFilterMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowFilterESM"));
@@ -34,7 +34,7 @@ public class VaporLight : VaporObject {
 
 	static Material s_screenShadowMaterial;
 
-	public static Material ScreenShadowMaterial {
+	static Material ScreenShadowMaterial {
 		get {
 			if (s_screenShadowMaterial == null) {
 				s_screenShadowMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowProperties"));
@@ -46,7 +46,7 @@ public class VaporLight : VaporObject {
 
 	static Material s_shadowBlurMaterial;
 
-	public static Material ShadowBlurMaterial {
+	static Material ShadowBlurMaterial {
 		get {
 			if (s_shadowBlurMaterial == null) {
 				s_shadowBlurMaterial = new Material(Shader.Find("Hidden/Vapor/ShadowBlur"));
@@ -69,9 +69,6 @@ public class VaporLight : VaporObject {
 
 	//...by having this command buffer run in an after light event 
 	CommandBuffer m_matrixCmdBuffer;
-
-
-
 	Light m_light;
 
 	public Light Light {
@@ -89,15 +86,15 @@ public class VaporLight : VaporObject {
 
 	public bool HasShadow {
 		get {
-			if (ShadowSupported()) {
-				if (m_light.shadows == LightShadows.Hard || m_light.shadows == LightShadows.Soft) {
-					return true;
-				}
+			if (!ShadowSupported()) {
+				return false;
 			}
 
-			return false;
+			return m_light.shadows == LightShadows.Hard || m_light.shadows == LightShadows.Soft;
 		}
 	}
+
+	public override float CullRange { get { return m_light.range; } }
 
 	void OnEnable() {
 		m_light = GetComponent<Light>();
@@ -132,7 +129,7 @@ public class VaporLight : VaporObject {
 		//Adapted from unity source (shared through Unity QA)
 		//Modified to give "max" size essentially
 
-		//these constant can vary slighty based on platform capabilities.
+		//these constant can vary slightly based on platform capabilities.
 		const int kShadowmapPointSizeMax = 1024;
 		const int kShadowmapSpotSizeMax = 2048;
 		const int kShadowmapDirSizeMax = 4096;
@@ -233,14 +230,14 @@ public class VaporLight : VaporObject {
 			RenderTextureFormat.RGFloat);
 
 		m_shadowCmd.SetGlobalTexture("_ShadowMap", shadowId);
-		m_shadowCmd.Blit((Texture) null, m_shadowMap, ShadowFilterMaterial);
+		m_shadowCmd.Blit(null, m_shadowMap, ShadowFilterMaterial);
 		/*
-			//Blur the shadow map - disabled atm
-			m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.right * ShadowBlur);
-			m_shadowCmd.Blit((RenderTargetIdentifier) m_shadowMap, blurTemp, ShadowBlurMaterial, 0);
+		//Blur the shadow map - disabled atm
+		m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.right * ShadowBlur);
+		m_shadowCmd.Blit((RenderTargetIdentifier) m_shadowMap, blurTemp, ShadowBlurMaterial, 0);
 
-			m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.up * ShadowBlur);
-			m_shadowCmd.Blit(blurTemp, m_shadowMap, ShadowBlurMaterial, 0);*/
+		m_shadowCmd.SetGlobalVector("_ShadowBlurSize", Vector2.up * ShadowBlur);
+		m_shadowCmd.Blit(blurTemp, m_shadowMap, ShadowBlurMaterial, 0);*/
 		m_shadowCmd.ReleaseTemporaryRT(blurTemp);
 	}
 
@@ -272,12 +269,10 @@ public class VaporLight : VaporObject {
 				if (HasShadow) {
 					if (QualitySettings.shadowCascades > 1) {
 						dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.Cascaded);
-					}
-					else {
+					} else {
 						dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.Shadowed);
 					}
-				}
-				else {
+				} else {
 					dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.None);
 				}
 
@@ -286,8 +281,7 @@ public class VaporLight : VaporObject {
 				if (HasShadow) {
 					compute.SetBuffer(dirKernel, "_MatrixBuf", MatrixBuffer);
 					compute.SetTexture(dirKernel, "_ShadowMapTexture", m_shadowMap);
-				}
-				else {
+				} else {
 					compute.SetTexture(dirKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
 				}
 
@@ -331,8 +325,7 @@ public class VaporLight : VaporObject {
 				compute.SetMatrix("_SpotMatrix", mat);
 				if (m_light.cookie != null) {
 					compute.SetTexture(spotKernel, "_SpotCookie", m_light.cookie);
-				}
-				else {
+				} else {
 					compute.SetTexture(spotKernel, "_SpotCookie", vapor.SpotCookie);
 				}
 
@@ -342,19 +335,19 @@ public class VaporLight : VaporObject {
 		}
 	}
 
-
-
 	//Bit hacky, but spits out some world positions that are encapsulated in UV space bounds in main Vapor class
 	public override void GetBounds(Transform space, List<Vector3> worldBounds) {
 		Vector3 right, up, forward;
-		Vector3 position = transform.position;
+		var trans = transform;
+		Vector3 position = trans.position;
+		var range = m_light.range;
 
 		switch (LightType) {
 			case LightType.Point:
 				//Add 8 frustum aligned corners...
-				right = m_light.range * space.right;
-				up = m_light.range * space.up;
-				forward = m_light.range * space.forward;
+				right = range * space.right;
+				up = range * space.up;
+				forward = range * space.forward;
 
 				worldBounds.Add(position + right + up - forward);
 				worldBounds.Add(position + right - up - forward);
@@ -369,9 +362,9 @@ public class VaporLight : VaporObject {
 
 			case LightType.Spot:
 				float tanSize = Mathf.Clamp01(Mathf.Tan(m_light.spotAngle * Mathf.Deg2Rad)) * m_light.range;
-				right = tanSize * transform.right;
-				up = tanSize * transform.up;
-				forward = m_light.range * transform.forward;
+				right = tanSize * trans.right;
+				up = tanSize * trans.up;
+				forward = range * trans.forward;
 
 				worldBounds.Add(position + right + up + forward);
 				worldBounds.Add(position + right - up + forward);
@@ -379,10 +372,7 @@ public class VaporLight : VaporObject {
 				worldBounds.Add(position - right - up + forward);
 
 				worldBounds.Add(position + forward);
-
 				break;
 		}
 	}
-
-	public override float CullRange { get { return m_light.range; } }
 }
