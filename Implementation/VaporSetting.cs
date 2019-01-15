@@ -92,6 +92,10 @@ public class VaporSetting : ScriptableObject {
 		if (blendTime > 0) {
 			comp.SetTexture(kernel, "_GradientTextureBlend", blendTo.GradientTex);
 			comp.SetFloat("_SettingBlend", blendTime);
+		} else {
+			// Bind default texture
+			comp.SetTexture(kernel, "_GradientTextureBlend", Texture2D.whiteTexture);
+			comp.SetFloat("_SettingBlend", 0.0f);
 		}
 	}
 }

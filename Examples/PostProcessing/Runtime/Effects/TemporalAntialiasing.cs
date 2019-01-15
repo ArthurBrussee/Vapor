@@ -111,6 +111,7 @@ namespace UnityEngine.Rendering.PostProcessing
         // TODO: We'll probably need to isolate most of this for SRPs
         public void ConfigureStereoJitteredProjectionMatrices(PostProcessRenderContext context)
         {
+			/*
 #if  UNITY_2017_3_OR_NEWER
             var camera = context.camera;
             jitter = GenerateRandomOffset();
@@ -133,6 +134,7 @@ namespace UnityEngine.Rendering.PostProcessing
             jitter = new Vector2(jitter.x / context.screenWidth, jitter.y / context.screenHeight);
             camera.useJitteredProjectionMatrixForTransparentRendering = false;
 #endif
+*/
         }
 
         void GenerateHistoryName(RenderTexture rt, int id, PostProcessRenderContext context)
