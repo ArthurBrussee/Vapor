@@ -1,6 +1,8 @@
 ﻿#pragma kernel FogDensity BLEND
 #pragma kernel ZoneWrite
 
+#pragma kernel LightShaftWrite
+
 #pragma kernel LightDirectional
 #pragma kernel LightDirectionalShadow SCATTER_SHADOW
 #pragma kernel LightDirectionalShadowCascade SCATTER_SHADOW SHADOW_CASCADE
@@ -112,6 +114,8 @@ SamplerState sampler_NoiseTex;
 float4x4 _ZoneWorldToLocal;
 float4 _ZoneSize;
 float _ZoneRadiusSqr;
+float _ZoneIntensity;
+//float _FallOffMultiplier;
 
 Texture2D _BlueNoise;
 
@@ -405,9 +409,9 @@ float4 GetGradient(float3 worldPos, float zLocal) {
 	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
 	float4 grad = _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
 
-#if defined(BLEND)
-	grad = lerp(grad, _GradientTextureBlend.SampleLevel(sampler_GradientTexture, gradientUv, 0), _SettingBlend);
-#endif
+//#if defined(BLEND)
+//	grad = lerp(grad, _GradientTextureBlend.SampleLevel(sampler_GradientTexture, gradientUv, 0), _SettingBlend);
+//#endif
 
 	return grad;
 }
@@ -467,9 +471,49 @@ void ZoneWrite(uint3 id : SV_DispatchThreadID) {
 	if (dist <= _ZoneRadiusSqr) {
 		float zLocal = VaporDeviceToEyeDepth(device.z);
 
-		_DensityTextureWrite[id] = _AlbedoExt * GetGradient(worldPos, zLocal);
-		_LightAccumR[id] += emis.r;
-		_LightAccumG[id] += emis.g;
-		_LightAccumB[id] += emis.b;
+		_DensityTextureWrite[id] = _AlbedoExt * _ZoneIntensity;//GetGradient(worldPos, zLocal);
+		_LightAccumR[id] += emis.r*_ZoneIntensity;
+		_LightAccumG[id] += emis.g*_ZoneIntensity;
+		_LightAccumB[id] += emis.b*_ZoneIntensity;
+	}
+}
+
+[numthreads(4, 4, 4)]
+void LightShaftWrite(uint3 id : SV_DispatchThreadID) {
+	id += _LightWriteLower;
+	float3 worldPos = IDToWorld(id, 0.5f);
+	float4 lightCoord = mul(_SpotMatrix, float4(worldPos, 1.0f));
+	float3 local = mul(_ZoneWorldToLocal, float4(worldPos, 1.0f)).xyz;
+	float3 emis = _Emissive.rgb;
+	
+	if (lightCoord.z > 0)
+	{
+		//This makes the zone/for appear from the starting of the light tip
+		//As the light is placed in the centre of the box, the box appears to be filled from the centre
+		
+		float3 direction = normalize(_CameraPos.xyz - worldPos);
+		float3 dd = worldPos - _LightPosRange.xyz;
+		float faloff = GetFaloff(dd, _LightPosRange.w);
+
+		if (faloff > 0)
+		{
+			//Work out the shadows here:
+			float4 shadowCoord = mul(_SpotShadowMatrix, float4(worldPos, 1.0f));
+			shadowCoord.xyz /= shadowCoord.w;
+			shadowCoord.xy = shadowCoord.xy * 0.5f + 0.5f;
+			shadowCoord.y = 1.0f - shadowCoord.y;
+
+			float depth = _SpotShadow.SampleLevel(MyLinearClampSampler, shadowCoord.xy, 0.0f).r;
+			float4 cookie = _SpotCookie.SampleLevel(sampler_SpotCookie, lightCoord.xy / lightCoord.w + 0.5f, 0.0f);
+			float3 scatter = GetRayleigh(worldPos, dd, _LightColor.rgb * cookie.rgb * cookie.a);
+			
+			if(depth < (shadowCoord.z))
+			{
+				_DensityTextureWrite[id] = float4(_AlbedoExt.rgb*scatter, 1.0);//GetGradient(worldPos, zLocal);
+				_LightAccumR[id] += emis.r;
+				_LightAccumG[id] += emis.g;
+				_LightAccumB[id] += emis.b;
+			}
+		}
 	}
 }

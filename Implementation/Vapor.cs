@@ -4,6 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 using VaporAPI;
 using UnityEngine.Profiling;
+using UnityEngine.Rendering.PostProcessing;
 using Random = UnityEngine.Random;
 
 #if UNITY_EDITOR
@@ -13,7 +14,7 @@ using Random = UnityEngine.Random;
 [ExecuteInEditMode]
 [ImageEffectAllowedInSceneView]
 public class Vapor : MonoBehaviour {
-	public enum QualitySetting {
+	public enum QualiySetting {
 		Low,
 		Medium,
 		High,
@@ -150,7 +151,8 @@ public class Vapor : MonoBehaviour {
 	int m_densityKernel;
 
 	[NonSerialized] internal int ZoneKernel;
-	[NonSerialized] internal int LightPointKernel;
+    [NonSerialized] internal int LightShaftKernel;
+    [NonSerialized] internal int LightPointKernel;
 	[NonSerialized] internal VaporKernel LightSpotKernel;
 	[NonSerialized] internal VaporKernel LightDirKernel;
 
@@ -176,18 +178,20 @@ public class Vapor : MonoBehaviour {
 		m_cullGroup = new CullingGroup();
 		m_cullGroup.SetBoundingSpheres(m_spheres);
 
-		//Break dependence on Resources? Could cause stalls for people grmbl
+		//Break dependance on Resources? Could cause stalls for people grmbl
 		m_vaporCompute = Resources.Load<ComputeShader>("VaporSim");
 		m_densityKernel = m_vaporCompute.FindKernel("FogDensity");
 		ZoneKernel = m_vaporCompute.FindKernel("ZoneWrite");
-		LightPointKernel = m_vaporCompute.FindKernel("LightPoint");
+        LightShaftKernel = m_vaporCompute.FindKernel("LightShaftWrite");
+        LightPointKernel = m_vaporCompute.FindKernel("LightPoint");
 		LightSpotKernel = new VaporKernel(m_vaporCompute, "LightSpot");
 		LightDirKernel = new VaporKernel(m_vaporCompute, "LightDirectional");
 		m_lightClearKernel = m_vaporCompute.FindKernel("LightClear");
 		m_scatterKernel = m_vaporCompute.FindKernel("Scatter");
 		m_integrateKernel = m_vaporCompute.FindKernel("Integrate");
 		m_integrateClearKernel = m_vaporCompute.FindKernel("IntegrateClear");
-		m_fogMat = new Material(Shader.Find("Hidden/VaporPost")) {hideFlags = HideFlags.HideAndDontSave};
+		m_fogMat = new Material(Shader.Find("Hidden/VaporPost"));
+		m_fogMat.hideFlags = HideFlags.HideAndDontSave;
 
 		m_blueNoiseTex = Resources.Load<Texture2D>("BlueNoise");
 
@@ -294,8 +298,8 @@ public class Vapor : MonoBehaviour {
 		m_cullGroup.SetBoundingSphereCount(VaporObject.All.Count);
 
 		//Get direction light & bind random acess textures
-		foreach (VaporObject vap in VaporObject.All) {
-			var vaporLight = vap as VaporLight;
+		for (int i = 0; i < VaporObject.All.Count; i++) {
+			var vaporLight = VaporObject.All[i] as VaporLight;
 
 			if (vaporLight == null || !vaporLight.HasShadow || vaporLight.LightType != LightType.Directional) {
 				continue;
@@ -308,8 +312,11 @@ public class Vapor : MonoBehaviour {
 
 		Shader.SetGlobalTexture("_VaporFogTexture", m_integratedTexture);
 
-		bool inForward = Camera.current.actualRenderingPath == RenderingPath.Forward;
-		Shader.SetGlobalFloat("_VaporForward", inForward ? 1 : 0);
+		if (Camera.current.actualRenderingPath == RenderingPath.Forward) {
+			Shader.SetGlobalFloat("_VaporForward", 1);
+		} else {
+			Shader.SetGlobalFloat("_VaporForward", 0);
+		}
 	}
 
 	float DeviceToLinearDepth(float device) {
@@ -318,10 +325,7 @@ public class Vapor : MonoBehaviour {
 	}
 
 	Vector3 GetUvFromWorld(Vector3 world, Matrix4x4 viewProj) {
-		var trans = transform;
-		var forward = trans.forward;
-		
-		var plane = new Plane(forward, trans.position + forward * m_camera.nearClipPlane);
+		var plane = new Plane(transform.forward, transform.position + transform.forward * m_camera.nearClipPlane);
 		float dist = plane.GetDistanceToPoint(world);
 		world -= Mathf.Min(0, dist) * transform.forward;
 
@@ -366,8 +370,8 @@ public class Vapor : MonoBehaviour {
 		obj.GetBounds(transform, m_worldBounds);
 		Bounds uvBounds = new Bounds(GetUvFromWorld(obj.transform.position, viewProj), Vector3.one * 0.05f);
 
-		foreach (Vector3 bound in m_worldBounds) {
-			Vector3 uv = GetUvFromWorld(bound, viewProj);
+		for (int i = 0; i < m_worldBounds.Count; i++) {
+			Vector3 uv = GetUvFromWorld(m_worldBounds[i], viewProj);
 			uvBounds.Encapsulate(uv);
 		}
 
@@ -452,8 +456,12 @@ public class Vapor : MonoBehaviour {
 		m_vaporCompute.SetInt("_Frame", Random.Range(0, m_blueNoiseTex.width * m_blueNoiseTex.height));
 		m_vaporCompute.SetVector("_CameraPos", Camera.current.transform.position);
 
-		bool lowCascade = QualitySettings.shadowCascades == 2;
-		m_vaporCompute.SetVector("_ShadowRange", lowCascade ? new Vector4(0.0f, 0.5f, 0.0f, 1.0f) : new Vector4(0.5f, 0.5f));
+		if (QualitySettings.shadowCascades == 2) {
+			m_vaporCompute.SetVector("_ShadowRange", new Vector4(0.0f, 0.5f, 0.0f, 1.0f));
+		}
+		else {
+			m_vaporCompute.SetVector("_ShadowRange", new Vector4(0.5f, 0.5f));
+		}
 
 		Matrix4x4 v = Camera.current.stereoEnabled ? m_camera.GetStereoViewMatrix(Camera.StereoscopicEye.Left) : m_camera.worldToCameraMatrix;
 		Vector2 jitter = GenerateRandomOffset();
@@ -496,7 +504,7 @@ public class Vapor : MonoBehaviour {
 			float zc1 = far / near;
 			m_vaporCompute.SetVector("_ZBufferParams", new Vector4(zc0, zc1, zc0 / far, zc1 / far));
 
-			for (int i = 0; i < 11; ++i) {
+			for (int i = 0; i < 12; ++i) {
 				m_vaporCompute.SetTexture(i, "_BlueNoise", m_blueNoiseTex);
 			}
 		}
@@ -523,14 +531,13 @@ public class Vapor : MonoBehaviour {
 
 			double size = Mathf.Pow(ScatteringIntensity * 1e3f, 1.0f / 6.0f);
 
-			const double scatteringSize = 1e-18 * 2.5e25;
-			
-			float rSize = (float) (r * Math.Pow(size * ScatteringColor.r / 200.0f, 4.0f) * size * size * scatteringSize);
-			float gSize = (float) (r * Math.Pow(size * ScatteringColor.g / 200.0f, 4.0f) * size * size * scatteringSize);
-			float bSize = (float) (r * Math.Pow(size * ScatteringColor.b / 200.0f, 4.0f) * size * size * scatteringSize);
+			float rsize = (float) (r * Math.Pow(size * ScatteringColor.r / 200.0f, 4.0f) * size * size * (1e-18 * 2.5e25));
+			float gsize = (float) (r * Math.Pow(size * ScatteringColor.g / 200.0f, 4.0f) * size * size * (1e-18 * 2.5e25));
+			float bsize = (float) (r * Math.Pow(size * ScatteringColor.b / 200.0f, 4.0f) * size * size * (1e-18 * 2.5e25));
 
-			Vector3 rayleighBase = new Vector3(rSize, gSize, bSize);
+			Vector3 rayleighBase = new Vector3(rsize, gsize, bsize);
 			Vector3 rayleighWeight = rayleighBase * Mathf.Pow(2.0f * Mathf.PI, 4.0f) / (Mathf.Pow(2.0f, 6.0f));
+
 			Vector3 rayleighCross = rayleighBase * 24 * Mathf.Pow(Mathf.PI, 3.0f);
 
 			rayleighCross.x = (float) Math.Pow(1.0 - rayleighCross.x, 1000);
@@ -539,19 +546,16 @@ public class Vapor : MonoBehaviour {
 
 			m_vaporCompute.SetVector("_Rayleigh", rayleighWeight * 1e5f);
 			m_vaporCompute.SetVector("_RayleighCross", rayleighCross);
-			
-			var mieScatter = new Vector4(	DirectionalScatteringColor.r, 
-											DirectionalScatteringColor.g, 
-											DirectionalScatteringColor.b,
-											DirectionalScattering * 0.999f);
-			
-			m_vaporCompute.SetVector("_MieScatter", mieScatter);
+			m_vaporCompute.SetVector("_MieScatter",
+				new Vector4(DirectionalScatteringColor.r, DirectionalScatteringColor.g, DirectionalScatteringColor.b,
+					DirectionalScattering * 0.999f));
+
 			m_vaporCompute.SetFloat("_LambertBeerDensity", Setting.Extinction * 0.1f);
 
-			const float planetSize = 8000.0f;
-			float atmosphereRadius = planetSize + AtmosphereThickness;
-			var atmosphereSettings = new Vector4(AtmosphereRingPower, AtmosphereRingSize, atmosphereRadius * atmosphereRadius, planetSize);
-			m_vaporCompute.SetVector("_Atmosphere", atmosphereSettings);
+			float planetSize = 8000;
+			float atmoRadius = planetSize + AtmosphereThickness;
+			m_vaporCompute.SetVector("_Atmosphere",
+				new Vector4(AtmosphereRingPower, AtmosphereRingSize, atmoRadius * atmoRadius, planetSize));
 		}
 
 		Profiler.BeginSample("Write global density");
@@ -564,16 +568,15 @@ public class Vapor : MonoBehaviour {
 		Profiler.BeginSample("Vapor Object Passes");
 		//If there's no directional -> manual clear light buffer
 		if (VaporObject.All.Count == 0 || (VaporObject.All[0] as VaporLight) == null ||
-		    ((VaporLight) VaporObject.All[0]).LightType != LightType.Directional) {
+		    (VaporObject.All[0] as VaporLight).LightType != LightType.Directional) {
 			SetLightAccum(m_lightClearKernel, false);
 			m_vaporCompute.DispatchScaled(m_lightClearKernel, m_scatterTex.width, m_scatterTex.height, m_scatterTex.volumeDepth);
 		}
-		
 		//Inject vapor objects
-		foreach (VaporObject vap in VaporObject.All) {
+		for (int index = 0; index < VaporObject.All.Count; index++) {
+			VaporObject vap = VaporObject.All[index];
 			vap.Inject(this, m_vaporCompute, vp);
 		}
-		
 		Profiler.EndSample();
 
 		Setting.Bind(m_vaporCompute, m_densityKernel, BlendToSetting, m_blendTime);

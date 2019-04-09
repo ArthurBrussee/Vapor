@@ -82,7 +82,7 @@ namespace VaporAPI {
 	[CustomEditor(typeof(Vapor))]
 	public class VaporEditor : VaporBaseEditor {
 		Editor m_settingEditor;
-		Vapor.QualitySetting m_quality;
+		Vapor.QualiySetting m_quality;
 
 		VaporTabGroup m_group;
 
@@ -101,19 +101,19 @@ namespace VaporAPI {
 			float z = zMult.floatValue;
 
 			if (xyMult.hasMultipleDifferentValues || zMult.hasMultipleDifferentValues) {
-				m_quality = Vapor.QualitySetting.Custom;
+				m_quality = Vapor.QualiySetting.Custom;
 			}
 			else if (Mathf.Approximately(xy, 0.8f) && Mathf.Approximately(z, 0.8f)) {
-				m_quality = Vapor.QualitySetting.Low;
+				m_quality = Vapor.QualiySetting.Low;
 			}
 			else if (Mathf.Approximately(xy, 1.0f) && Mathf.Approximately(z, 1.0f)) {
-				m_quality = Vapor.QualitySetting.Medium;
+				m_quality = Vapor.QualiySetting.Medium;
 			}
 			else if (Mathf.Approximately(xy, 1.2f) && Mathf.Approximately(z, 1.2f)) {
-				m_quality = Vapor.QualitySetting.High;
+				m_quality = Vapor.QualiySetting.High;
 			}
 			else {
-				m_quality = Vapor.QualitySetting.Custom;
+				m_quality = Vapor.QualiySetting.Custom;
 			}
 		}
 
@@ -191,31 +191,31 @@ namespace VaporAPI {
 
 			if (Tab("Quality Settings")) {
 				using (var change = new EditorGUI.ChangeCheckScope()) {
-					m_quality = (Vapor.QualitySetting) EditorGUILayout.EnumPopup("Quality", m_quality);
+					m_quality = (Vapor.QualiySetting) EditorGUILayout.EnumPopup("Quality", m_quality);
 
 					if (change.changed) {
 						var xyMult = serializedObject.FindProperty("GlobalResolutionMult");
 						var zMult = serializedObject.FindProperty("DepthResolutionMult");
 
 						switch (m_quality) {
-							case Vapor.QualitySetting.Low:
+							case Vapor.QualiySetting.Low:
 								xyMult.floatValue = 0.8f;
 								zMult.floatValue = 0.8f;
 								break;
 
-							case Vapor.QualitySetting.Medium:
+							case Vapor.QualiySetting.Medium:
 								xyMult.floatValue = 1.0f;
 								zMult.floatValue = 1.0f;
 								break;
 
-							case Vapor.QualitySetting.High:
+							case Vapor.QualiySetting.High:
 								xyMult.floatValue = 1.2f;
 								zMult.floatValue = 1.2f;
 								break;
 						}
 					}
 
-					if (m_quality == Vapor.QualitySetting.Custom) {
+					if (m_quality == Vapor.QualiySetting.Custom) {
 						PropertyField("GlobalResolutionMult", "Pixels to use in the z direction");
 						PropertyField("DepthResolutionMult", "Pixels to use in the z direction");
 					}
