@@ -6,23 +6,22 @@ namespace VaporAPI {
 	[CanEditMultipleObjects]
 	public class VaporLightShaftEditor : VaporBaseEditor {
 		Editor m_settingEditor;
-
+        static Vector3 lightShaftGizmoPosition = Vector3.zero;
 		[DrawGizmo(GizmoType.NotInSelectionHierarchy | GizmoType.Active, typeof(VaporLightShaft))]
-		static void DrawZoneGizmo(VaporLightShaft zone, GizmoType type) {
-			Gizmos.matrix = zone.transform.localToWorldMatrix;
-			Gizmos.DrawWireCube(Vector3.zero, zone.Size);
+		static void DrawLightShaftGizmo(VaporLightShaft lightShaft, GizmoType type) {
+			Gizmos.matrix = lightShaft.transform.localToWorldMatrix;
+            lightShaftGizmoPosition.z = lightShaft.Size.z / 2f;
+            Gizmos.DrawWireCube(lightShaftGizmoPosition, lightShaft.Size);
 		}
 
 		public override void OnInspectorGUI() {
 			serializedObject.Update();
 
-			SettingsField("m_setting", "Physical properties of the fog in this zone", ref m_settingEditor);
+			SettingsField("m_setting", "Physical properties of the fog in this light shaft", ref m_settingEditor);
 			PropertyField("Size", "");
-			PropertyField("Radius", "Softening radius");
-            PropertyField("ZoneIntensity", "Light Shaft Intensity");
+            PropertyField("Intensity", "Light Shaft Intensity");
             PropertyField("m_light", "Light Component");
             PropertyField("SpotBaseSize", "Base of the Spotlight");
-            PropertyField("fallOffMultiplier", "Fall-Off Multiplier");
             PropertyField("ShadowValue", "Shadow Map Multiplier");
             PropertyField("CustomShadowMap", "Custom Map/Texture");
 

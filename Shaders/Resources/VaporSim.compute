@@ -115,7 +115,6 @@ float4x4 _ZoneWorldToLocal;
 float4 _ZoneSize;
 float _ZoneRadiusSqr;
 float _ZoneIntensity;
-//float _FallOffMultiplier;
 
 Texture2D _BlueNoise;
 

@@ -7,12 +7,11 @@ using VaporAPI;
 public class VaporLightShaft : VaporObject {
     
     public Vector3 Size = Vector3.one;
-	public float Radius = 0.05f;
 	[SerializeField] private VaporSetting m_setting;
 
-    public float ZoneIntensity = 1.0f;
+    public float Intensity = 1.0f;
     public Light m_light;
-    public float ShadowValue;
+    public float ShadowValue = 1.0f;
     public Texture2D CustomShadowMap;
     RenderTexture m_ShadowmapCopy;
     private Material m_ShadowMapMultiplierMaterial;
@@ -32,8 +31,6 @@ public class VaporLightShaft : VaporObject {
 
     [Range(0.05f, 0.4f)]
     public float SpotBaseSize = 0.3f;
-
-    public float fallOffMultiplier;
 
     public VaporSetting Setting {
 		get {
@@ -90,7 +87,7 @@ public class VaporLightShaft : VaporObject {
 	public override void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj) {
 		compute.SetMatrix("_ZoneWorldToLocal", transform.worldToLocalMatrix);
 		compute.SetVector("_ZoneSize", Size * 0.5f);
-        compute.SetFloat("_ZoneIntensity", ZoneIntensity);
+        compute.SetFloat("_ZoneIntensity", Intensity);
         ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
         if (CustomShadowMap)
@@ -119,7 +116,7 @@ public class VaporLightShaft : VaporObject {
         posRange.w = 1.0f / (m_light.range * m_light.range);
         compute.SetVector("_LightPosRange", posRange);
 
-        Vector4 lightStrength = m_light.color * m_light.intensity * ZoneIntensity;
+        Vector4 lightStrength = m_light.color * m_light.intensity * Intensity;
         lightStrength *= 10;
         compute.SetVector("_LightColor", lightStrength);
         if (m_light.type == LightType.Spot)
@@ -154,22 +151,23 @@ public class VaporLightShaft : VaporObject {
         }
 	}
 
-	public override void GetBounds(Transform space, List<Vector3> worldBounds) {
-		Vector3 right = Radius * space.right;
-		Vector3 up = Radius * space.up;
-		Vector3 forward = Radius * space.forward;
+	public override void GetBounds(Transform space, List<Vector3> worldBounds)
+    {
+		Vector3 right = space.right;
+		Vector3 up = space.up;
+		Vector3 forward = space.forward;
 
 
-		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, Size.y, -Size.z)) + right + up - forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, -Size.y, -Size.z)) + right - up - forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, -Size.z)) - right + up - forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, -Size.z)) - right - up - forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, Size.y, 0f)) + right + up - forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, -Size.y, 0f)) + right - up - forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, 0f)) - right + up - forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, 0f)) - right - up - forward);
 
-		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, Size.y, Size.z)) + right + up + forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, -Size.y, Size.z)) + right - up + forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, Size.z)) - right + up + forward);
-		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, Size.z)) - right - up + forward);
-	}
+        worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, Size.y, Size.z)) + right + up + forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, -Size.y, Size.z)) + right - up + forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, Size.z)) - right + up + forward);
+        worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, Size.z)) - right - up + forward);
+    }
 
-	public override float CullRange { get { return Size.magnitude + Radius; } }
+	public override float CullRange { get { return Size.magnitude; } }
 }
