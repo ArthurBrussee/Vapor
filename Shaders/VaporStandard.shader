@@ -93,7 +93,7 @@
 
 			struct VertexOutputForwardBaseVapor{
 				VertexOutputForwardBase base;
-				float3 worldPos : TEXCOORD8	;
+				float3 worldPos : TEXCOORD8;
 			};
 
 			VertexOutputForwardBaseVapor vertBaseVapor(VertexInput v) {

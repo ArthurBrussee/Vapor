@@ -1,7 +1,7 @@
 ﻿#pragma kernel FogDensity BLEND
 #pragma kernel ZoneWrite
 
-#pragma kernel LightShaftWrite
+#pragma kernel CustomLightWrite
 
 #pragma kernel LightDirectional
 #pragma kernel LightDirectionalShadow SCATTER_SHADOW
@@ -408,9 +408,9 @@ float4 GetGradient(float3 worldPos, float zLocal) {
 	float2 gradientUv = float2(zLocal * _GradientSettings.z + _GradientSettings.w, worldPos.y * _GradientSettings.x + _GradientSettings.y);
 	float4 grad = _GradientTexture.SampleLevel(sampler_GradientTexture, gradientUv, 0);
 
-//#if defined(BLEND)
-//	grad = lerp(grad, _GradientTextureBlend.SampleLevel(sampler_GradientTexture, gradientUv, 0), _SettingBlend);
-//#endif
+#if defined(BLEND)
+	grad = lerp(grad, _GradientTextureBlend.SampleLevel(sampler_GradientTexture, gradientUv, 0), _SettingBlend);
+#endif
 
 	return grad;
 }
@@ -470,7 +470,7 @@ void ZoneWrite(uint3 id : SV_DispatchThreadID) {
 	if (dist <= _ZoneRadiusSqr) {
 		float zLocal = VaporDeviceToEyeDepth(device.z);
 
-		_DensityTextureWrite[id] = _AlbedoExt * _ZoneIntensity;//GetGradient(worldPos, zLocal);
+		_DensityTextureWrite[id] = _AlbedoExt * _ZoneIntensity * GetGradient(worldPos, zLocal);
 		_LightAccumR[id] += emis.r*_ZoneIntensity;
 		_LightAccumG[id] += emis.g*_ZoneIntensity;
 		_LightAccumB[id] += emis.b*_ZoneIntensity;
@@ -478,7 +478,7 @@ void ZoneWrite(uint3 id : SV_DispatchThreadID) {
 }
 
 [numthreads(4, 4, 4)]
-void LightShaftWrite(uint3 id : SV_DispatchThreadID) {
+void CustomLightWrite(uint3 id : SV_DispatchThreadID) {
 	id += _LightWriteLower;
 	float3 worldPos = IDToWorld(id, 0.5f);
 	float4 lightCoord = mul(_SpotMatrix, float4(worldPos, 1.0f));
