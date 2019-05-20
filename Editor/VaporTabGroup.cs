@@ -1,13 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
-using UnityEngine;
 using UnityEditor;
+using UnityEngine;
 
 [Serializable]
 public class VaporTabGroup : ScriptableObject {
 	[SerializeField] List<bool> m_open;
 	[SerializeField] List<string> m_names;
-	Action<Rect> m_defaultTabFunction = (r) => GUI.Label(r, "-", EditorStyles.whiteLabel);
+	Action<Rect> m_defaultTabFunction = r => GUI.Label(r, "-", EditorStyles.whiteLabel);
 
 	public static VaporTabGroup GetTabGroup() {
 		var o = Resources.FindObjectsOfTypeAll<VaporTabGroup>();
@@ -82,8 +82,6 @@ public class VaporTabGroup : ScriptableObject {
 		Action<Rect> optionalGUI,
 		out bool removed,
 		string saveAs = "") {
-
-
 		if (saveAs == "") {
 			saveAs = areaName;
 		}
@@ -137,12 +135,15 @@ public class VaporTabGroup : ScriptableObject {
 		EditorGUILayout.BeginHorizontal();
 		m_open[i] = EditorGUILayout.Toggle(new GUIContent(""), m_open[i], "foldout", options);
 
-		if (areaName != "")
+		if (areaName != "") {
 			EditorGUILayout.LabelField(new GUIContent(areaName), GUILayout.ExpandWidth(false), GUILayout.Width(180.0f));
+		}
+
 		EditorGUILayout.EndHorizontal();
 
-		if (GUI.changed)
+		if (GUI.changed) {
 			EditorUtility.SetDirty(this);
+		}
 
 		return m_open[i];
 	}
@@ -153,12 +154,15 @@ public class VaporTabGroup : ScriptableObject {
 		EditorGUILayout.BeginHorizontal();
 		m_open[i] = EditorGUILayout.Toggle(new GUIContent(""), m_open[i], "foldout", options);
 
-		if (areaName != "")
+		if (areaName != "") {
 			EditorGUILayout.LabelField(new GUIContent(areaName), labelStyle);
+		}
+
 		EditorGUILayout.EndHorizontal();
 
-		if (GUI.changed)
+		if (GUI.changed) {
 			EditorUtility.SetDirty(this);
+		}
 
 		return m_open[i];
 	}

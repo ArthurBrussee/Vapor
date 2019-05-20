@@ -1,6 +1,6 @@
-﻿using UnityEngine;
-using System.Linq;
+﻿using System.Linq;
 using UnityEditor;
+using UnityEngine;
 
 namespace VaporAPI {
 	[CustomEditor(typeof(VaporLight))]
@@ -13,6 +13,7 @@ namespace VaporAPI {
 			if (targets.All(t => (t as VaporLight).LightType == LightType.Spot)) {
 				PropertyField("SpotBaseSize", "");
 			}
+
 			serializedObject.ApplyModifiedProperties();
 		}
 	}

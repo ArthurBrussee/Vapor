@@ -3,7 +3,7 @@
 [CreateAssetMenu(fileName = "VaporSettings", menuName = "Vapor Setting", order = 300)]
 public class VaporSetting : ScriptableObject {
 	[Header("Global settings")] public Color Albedo = new Color(0.1f, 0.1f, 0.1f); //sig_s / sig_t
-	public float Extinction = 0.15f; //sig_t
+	public float Extinction = 0.15f;                                               //sig_t
 
 	[ColorUsage(true, true)] public Color Emissive = Color.black;
 	[ColorUsage(true, true)] public Color AmbientLight = Color.black;
@@ -17,10 +17,10 @@ public class VaporSetting : ScriptableObject {
 
 	public Texture2D GradientTex {
 		get {
-
 			if (m_gradientTex == null) {
 				UpdateGradients();
 			}
+
 			return m_gradientTex;
 		}
 	}
@@ -28,7 +28,7 @@ public class VaporSetting : ScriptableObject {
 	public void UpdateGradients() {
 		if (m_gradientTex == null) {
 			m_gradientTex = new Texture2D(c_gradientRes, c_gradientRes, TextureFormat.ARGB32, false) {
-				wrapMode = TextureWrapMode.Clamp, 
+				wrapMode = TextureWrapMode.Clamp,
 				hideFlags = HideFlags.HideAndDontSave
 			};
 		}
@@ -37,8 +37,8 @@ public class VaporSetting : ScriptableObject {
 
 		for (int i = 0; i < c_gradientRes; i++) {
 			for (int j = 0; j < c_gradientRes; j++) {
-				float ti = (float)i / (c_gradientRes - 1);
-				float tj = (float)j / (c_gradientRes - 1);
+				float ti = (float) i / (c_gradientRes - 1);
+				float tj = (float) j / (c_gradientRes - 1);
 
 
 				Color colorX = DistanceGradient.Gradient.Evaluate(ti);
@@ -62,9 +62,9 @@ public class VaporSetting : ScriptableObject {
 		comp.SetFloat("_Extinction", extinction);
 
 		emissive = emissive * emissive.a;
-		emissive.r /= (albedo.r + 1);
-		emissive.g /= (albedo.g + 1);
-		emissive.b /= (albedo.b + 1);
+		emissive.r /= albedo.r + 1;
+		emissive.g /= albedo.g + 1;
+		emissive.b /= albedo.b + 1;
 
 		var ambientLight = Color.Lerp(AmbientLight, blendTo.AmbientLight, blendTime);
 		var ambientEmissive = ambientLight * ambientLight.a;
@@ -89,7 +89,8 @@ public class VaporSetting : ScriptableObject {
 		if (blendTime > 0) {
 			comp.SetTexture(kernel, "_GradientTextureBlend", blendTo.GradientTex);
 			comp.SetFloat("_SettingBlend", blendTime);
-		} else {
+		}
+		else {
 			// Bind default texture
 			comp.SetTexture(kernel, "_GradientTextureBlend", Texture2D.whiteTexture);
 			comp.SetFloat("_SettingBlend", 0.0f);

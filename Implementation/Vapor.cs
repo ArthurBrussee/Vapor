@@ -1,10 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.Rendering;
-using UnityEngine.Rendering.PostProcessing;
-using VaporAPI;
 using UnityEngine.Profiling;
+using UnityEngine.Rendering;
+using VaporAPI;
 using Random = UnityEngine.Random;
 
 #if UNITY_EDITOR
@@ -13,54 +12,54 @@ using UnityEditor;
 
 [ExecuteInEditMode]
 [ImageEffectAllowedInSceneView]
-public class Vapor : MonoBehaviour
-{
-	public enum QualitySetting
-	{
+public class Vapor : MonoBehaviour {
+	public enum QualitySetting {
 		Low,
 		Medium,
 		High,
 		Custom
 	}
 
-	[SerializeField] [Tooltip("Physical properties of the fog")] VaporSetting m_setting;
-	[Tooltip("Properties to blend towards controlled by the blend time")] [SerializeField] VaporSetting m_blendToSetting;
+	[SerializeField] [Tooltip("Physical properties of the fog")]
+	VaporSetting m_setting;
+
+	[Tooltip("Properties to blend towards controlled by the blend time")] [SerializeField]
+	VaporSetting m_blendToSetting;
+
 	[SerializeField] [Range(0.0f, 1.0f)] float m_blendTime;
 
 	/// <summary>
-	/// Lerp factor between <see cref="Setting"/> and <see cref="BlendToSetting"/>
+	///     Lerp factor between <see cref="Setting" /> and <see cref="BlendToSetting" />
 	/// </summary>
-	public float BlendTime { get { return m_blendTime; } set { m_blendTime = Mathf.Clamp01(value); } }
+	public float BlendTime {
+		get => m_blendTime;
+		set => m_blendTime = Mathf.Clamp01(value);
+	}
 
 	/// <summary>
-	/// Current blend setting. Control blending with <see cref="BlendTime"/>
+	///     Current blend setting. Control blending with <see cref="BlendTime" />
 	/// </summary>
-	public VaporSetting Setting
-	{
-		get
-		{
-			if (m_setting == null)
-			{
+	public VaporSetting Setting {
+		get {
+			if (m_setting == null) {
 				m_setting = DefaultSetting;
 			}
+
 			return m_setting;
 		}
 	}
 
 	/// <summary>
-	/// Default Vapor setting
+	///     Default Vapor setting
 	/// </summary>
-	public static VaporSetting DefaultSetting { get { return Resources.Load<VaporSetting>("DefaultVaporSetting"); } }
+	public static VaporSetting DefaultSetting => Resources.Load<VaporSetting>("DefaultVaporSetting");
 
 	/// <summary>
-	/// Target blend setting. Control blending with <see cref="BlendTime"/>
+	///     Target blend setting. Control blending with <see cref="BlendTime" />
 	/// </summary>
-	public VaporSetting BlendToSetting
-	{
-		get
-		{
-			if (m_blendToSetting == null)
-			{
+	public VaporSetting BlendToSetting {
+		get {
+			if (m_blendToSetting == null) {
 				m_blendToSetting = DefaultSetting;
 			}
 
@@ -71,12 +70,11 @@ public class Vapor : MonoBehaviour
 	public static Color DefaultScatteringColor = 200.0f * new Color(1.0f / 650.0f, 1.0f / 530.0f, 1.0f / 460.0f);
 
 	/// <summary>
-	/// Default Vapor ShadowMapMultiplierMaterial
+	///     Default Vapor ShadowMapMultiplierMaterial
 	/// </summary>
 	public static Material ShadowMapMultiplierMaterial;
 
-	[Range(0.0f, 1.0f)]
-	public float DirectionalScattering;
+	[Range(0.0f, 1.0f)] public float DirectionalScattering;
 
 	public Color DirectionalScatteringColor = Color.white * 0.5f;
 
@@ -110,7 +108,8 @@ public class Vapor : MonoBehaviour
 	[Range(0.5f, 2.0f)] public float DepthResolutionMult = 1.0f;
 
 	/// <summary>
-	/// Whether or not Forward shaders have the proper Vapor integration. Disable to revert to using a fullscreen pass to apply Vapor
+	///     Whether or not Forward shaders have the proper Vapor integration. Disable to revert to using a fullscreen pass to
+	///     apply Vapor
 	/// </summary>
 	public bool ShadersHaveVaporIntegrated = true;
 
@@ -120,35 +119,27 @@ public class Vapor : MonoBehaviour
 	const int c_defaultDepthRes = 128;
 
 	/// <summary>
-	/// Nr. of pixels horizontally in the volume texture
+	///     Nr. of pixels horizontally in the volume texture
 	/// </summary>
-	public int HorizontalRes { get { return Mathf.RoundToInt(c_defaultHorizontalRes * GlobalResolutionMult / 8.0f) * 8; } }
+	public int HorizontalRes => Mathf.RoundToInt(c_defaultHorizontalRes * GlobalResolutionMult / 8.0f) * 8;
 
 	/// <summary>
-	/// Nr. of pixels vertically in the volume texture
+	///     Nr. of pixels vertically in the volume texture
 	/// </summary>
-	public int VerticalRes
-	{
-		get { return Mathf.RoundToInt(c_defaultHorizontalRes * 9.0f / 16.0f * GlobalResolutionMult / 8.0f) * 8; }
-	}
+	public int VerticalRes => Mathf.RoundToInt(c_defaultHorizontalRes * 9.0f / 16.0f * GlobalResolutionMult / 8.0f) * 8;
 
 	/// <summary>
-	/// Nr. of pixels in depth direction in the volume texture
+	///     Nr. of pixels in depth direction in the volume texture
 	/// </summary>
-	public int DepthRes
-	{
-		get { return Mathf.RoundToInt(c_defaultDepthRes * GlobalResolutionMult * DepthResolutionMult / 8.0f) * 8; }
-	}
+	public int DepthRes => Mathf.RoundToInt(c_defaultDepthRes * GlobalResolutionMult * DepthResolutionMult / 8.0f) * 8;
 
-	bool IsEditorCamera
-	{
-		get
-		{
-#if UNITY_EDITOR
+	bool IsEditorCamera {
+		get {
+		#if UNITY_EDITOR
 			return SceneView.currentDrawingSceneView != null && SceneView.currentDrawingSceneView.camera == Camera.current;
-#else
+		#else
 			return false;
-#endif
+		#endif
 		}
 	}
 
@@ -190,8 +181,7 @@ public class Vapor : MonoBehaviour
 	int m_sampleIndex;
 	const int c_sampleCount = 8;
 
-	void OnEnable()
-	{
+	void OnEnable() {
 		m_camera = GetComponent<Camera>();
 		m_cullGroup = new CullingGroup();
 		m_cullGroup.SetBoundingSpheres(m_spheres);
@@ -208,7 +198,7 @@ public class Vapor : MonoBehaviour
 		m_scatterKernel = m_vaporCompute.FindKernel("Scatter");
 		m_integrateKernel = m_vaporCompute.FindKernel("Integrate");
 		m_integrateClearKernel = m_vaporCompute.FindKernel("IntegrateClear");
-		m_fogMat = new Material(Shader.Find("Hidden/VaporPost")) { hideFlags = HideFlags.HideAndDontSave };
+		m_fogMat = new Material(Shader.Find("Hidden/VaporPost")) {hideFlags = HideFlags.HideAndDontSave};
 		ShadowMapMultiplierMaterial = new Material(Shader.Find("Hidden/Vapor/VaporShadowMultiplier"));
 
 		m_blueNoiseTex = Resources.Load<Texture2D>("BlueNoise");
@@ -217,8 +207,7 @@ public class Vapor : MonoBehaviour
 		MarkInstantRender();
 	}
 
-	void CreateTextures()
-	{
+	void CreateTextures() {
 		CreateTexture(ref m_densityTex);
 		CreateTexture(ref m_localLightTexR, RenderTextureFormat.RHalf);
 		CreateTexture(ref m_localLightTexG, RenderTextureFormat.RHalf);
@@ -228,8 +217,7 @@ public class Vapor : MonoBehaviour
 		CreateTexture(ref m_integratedTexture);
 	}
 
-	void OnDisable()
-	{
+	void OnDisable() {
 		DestroyImmediate(m_densityTex);
 		DestroyImmediate(m_localLightTexR);
 		DestroyImmediate(m_localLightTexG);
@@ -239,21 +227,17 @@ public class Vapor : MonoBehaviour
 		DestroyImmediate(m_integratedTexture);
 		DestroyImmediate(ShadowMapMultiplierMaterial);
 
-		if (m_cullGroup != null)
-		{
+		if (m_cullGroup != null) {
 			m_cullGroup.Dispose();
 		}
 	}
 
-	void CreateTexture(ref RenderTexture tex, RenderTextureFormat format = RenderTextureFormat.ARGBHalf)
-	{
-		if (tex != null)
-		{
+	void CreateTexture(ref RenderTexture tex, RenderTextureFormat format = RenderTextureFormat.ARGBHalf) {
+		if (tex != null) {
 			DestroyImmediate(tex);
 		}
 
-		tex = new RenderTexture(HorizontalRes, VerticalRes, 0, format)
-		{
+		tex = new RenderTexture(HorizontalRes, VerticalRes, 0, format) {
 			volumeDepth = DepthRes,
 			dimension = TextureDimension.Tex3D,
 			enableRandomWrite = true,
@@ -265,13 +249,11 @@ public class Vapor : MonoBehaviour
 	}
 
 	//TODO: This jitter doesn't seem ideal
-	float GetHaltonValue(int index, int radix)
-	{
+	float GetHaltonValue(int index, int radix) {
 		float result = 0f;
 		float fraction = 1.0f / radix;
 
-		while (index > 0)
-		{
+		while (index > 0) {
 			result += index % radix * fraction;
 			index /= radix;
 			fraction /= radix;
@@ -280,51 +262,44 @@ public class Vapor : MonoBehaviour
 		return result;
 	}
 
-	Vector2 GenerateRandomOffset()
-	{
+	Vector2 GenerateRandomOffset() {
 		var offset = new Vector2(
-				GetHaltonValue(m_sampleIndex & 1023, 2),
-				GetHaltonValue(m_sampleIndex & 1023, 3));
+			GetHaltonValue(m_sampleIndex & 1023, 2),
+			GetHaltonValue(m_sampleIndex & 1023, 3));
 
-		if (++m_sampleIndex >= c_sampleCount)
+		if (++m_sampleIndex >= c_sampleCount) {
 			m_sampleIndex = 0;
+		}
 
 		return offset;
 	}
 
-	void Update()
-	{
-		if (m_densityTex == null || m_densityTex.width != HorizontalRes || m_densityTex.height != VerticalRes || m_densityTex.volumeDepth != DepthRes)
-		{
+	void Update() {
+		if (m_densityTex == null || m_densityTex.width != HorizontalRes || m_densityTex.height != VerticalRes || m_densityTex.volumeDepth != DepthRes) {
 			CreateTextures();
 			MarkInstantRender();
 		}
 
-		while (VaporObject.All.Count >= m_spheres.Length)
-		{
+		while (VaporObject.All.Count >= m_spheres.Length) {
 			Array.Resize(ref m_spheres, m_spheres.Length * 2);
 		}
 
-		for (int i = 0; i < VaporObject.All.Count; i++)
-		{
+		for (int i = 0; i < VaporObject.All.Count; i++) {
 			var vap = VaporObject.All[i];
 			m_spheres[i].position = vap.transform.position;
 			m_spheres[i].radius = vap.CullRange;
 		}
 	}
 
-	void OnPreRender()
-	{
-		if (IsEditorCamera && !DisplayInSceneView)
-		{
+	void OnPreRender() {
+		if (IsEditorCamera && !DisplayInSceneView) {
 			m_vaporCompute.SetTexture(m_integrateClearKernel, "_IntegratedTexture", m_integratedTexture);
 			m_vaporCompute.DispatchScaled(m_integrateClearKernel, m_integratedTexture.width, m_integratedTexture.height, m_integratedTexture.volumeDepth);
 			Shader.SetGlobalTexture("_VaporFogTexture", m_integratedTexture);
 			return;
 		}
 
-		if (Camera.current.stereoEnabled && Camera.current.stereoActiveEye == Camera.MonoOrStereoscopicEye.Right)
-		{
+		if (Camera.current.stereoEnabled && Camera.current.stereoActiveEye == Camera.MonoOrStereoscopicEye.Right) {
 			return;
 		}
 
@@ -332,12 +307,10 @@ public class Vapor : MonoBehaviour
 		m_cullGroup.SetBoundingSphereCount(VaporObject.All.Count);
 
 		//Get direction light & bind random acess textures
-		foreach (VaporObject vap in VaporObject.All)
-		{
+		foreach (VaporObject vap in VaporObject.All) {
 			var vaporLight = vap as VaporLight;
 
-			if (vaporLight == null || !vaporLight.HasShadow || vaporLight.LightType != LightType.Directional)
-			{
+			if (vaporLight == null || !vaporLight.HasShadow || vaporLight.LightType != LightType.Directional) {
 				continue;
 			}
 
@@ -352,14 +325,12 @@ public class Vapor : MonoBehaviour
 		Shader.SetGlobalFloat("_VaporForward", inForward ? 1 : 0);
 	}
 
-	float DeviceToLinearDepth(float device)
-	{
+	float DeviceToLinearDepth(float device) {
 		Vector4 planeSettings = GetPlaneSettings(m_camera.nearClipPlane, m_camera.farClipPlane);
 		return device / (planeSettings.y - device * planeSettings.z);
 	}
 
-	Vector3 GetUvFromWorld(Vector3 world, Matrix4x4 viewProj)
-	{
+	Vector3 GetUvFromWorld(Vector3 world, Matrix4x4 viewProj) {
 		var trans = transform;
 		var forward = trans.forward;
 
@@ -382,31 +353,25 @@ public class Vapor : MonoBehaviour
 		return uv;
 	}
 
-	public void MarkInstantRender()
-	{
+	public void MarkInstantRender() {
 		m_instant = true;
 	}
 
-	public void SetLightAccum(int kernel, bool read)
-	{
-		if (read)
-		{
+	public void SetLightAccum(int kernel, bool read) {
+		if (read) {
 			m_vaporCompute.SetTexture(kernel, "_LightReadR", m_localLightTexR);
 			m_vaporCompute.SetTexture(kernel, "_LightReadG", m_localLightTexG);
 			m_vaporCompute.SetTexture(kernel, "_LightReadB", m_localLightTexB);
 		}
-		else
-		{
+		else {
 			m_vaporCompute.SetTexture(kernel, "_LightAccumR", m_localLightTexR);
 			m_vaporCompute.SetTexture(kernel, "_LightAccumG", m_localLightTexG);
 			m_vaporCompute.SetTexture(kernel, "_LightAccumB", m_localLightTexB);
 		}
 	}
 
-	internal void InjectObject(Matrix4x4 viewProj, int kernel, VaporObject obj)
-	{
-		if (kernel == -1)
-		{
+	internal void InjectObject(Matrix4x4 viewProj, int kernel, VaporObject obj) {
+		if (kernel == -1) {
 			return;
 		}
 
@@ -414,8 +379,7 @@ public class Vapor : MonoBehaviour
 		obj.GetBounds(transform, m_worldBounds);
 		Bounds uvBounds = new Bounds(GetUvFromWorld(obj.transform.position, viewProj), Vector3.one * 0.05f);
 
-		foreach (Vector3 bound in m_worldBounds)
-		{
+		foreach (Vector3 bound in m_worldBounds) {
 			Vector3 uv = GetUvFromWorld(bound, viewProj);
 			uvBounds.Encapsulate(uv);
 		}
@@ -438,13 +402,11 @@ public class Vapor : MonoBehaviour
 		Profiler.EndSample();
 	}
 
-	static Vector4 GetPlaneSettings(float near, float far)
-	{
+	static Vector4 GetPlaneSettings(float near, float far) {
 		return new Vector4(near, far, far - near, near * far);
 	}
 
-	static Matrix4x4 GetJitteredMatrix(Camera camera, Vector2 offset)
-	{
+	static Matrix4x4 GetJitteredMatrix(Camera camera, Vector2 offset) {
 		float vertical = Mathf.Tan(0.5f * Mathf.Deg2Rad * camera.fieldOfView);
 		float horizontal = vertical * camera.aspect;
 		float near = camera.nearClipPlane;
@@ -465,7 +427,7 @@ public class Vapor : MonoBehaviour
 		matrix[0, 3] = 0f;
 
 		matrix[1, 0] = 0f;
-		matrix[1, 1] = (2f * near) / (top - bottom);
+		matrix[1, 1] = 2f * near / (top - bottom);
 		matrix[1, 2] = (top + bottom) / (top - bottom);
 		matrix[1, 3] = 0f;
 
@@ -482,24 +444,20 @@ public class Vapor : MonoBehaviour
 		return matrix;
 	}
 
-	void DoComputeSteps()
-	{
+	void DoComputeSteps() {
 		//TODO: Could switch between eyes? Would slightly blur the fog -> Probably nice
-		if (Camera.current.stereoEnabled && Camera.current.stereoActiveEye == Camera.MonoOrStereoscopicEye.Right)
-		{
+		if (Camera.current.stereoEnabled && Camera.current.stereoActiveEye == Camera.MonoOrStereoscopicEye.Right) {
 			m_setting = Setting; //Do update default setting if it's null
 			return;
 		}
 
 		Graphics.ClearRandomWriteTargets();
 
-		if (m_instant)
-		{
+		if (m_instant) {
 			m_vaporCompute.SetFloat("_ExponentialWeight", 1.0f);
 			m_instant = false;
 		}
-		else
-		{
+		else {
 			m_vaporCompute.SetFloat("_ExponentialWeight", AveragingSpeed);
 		}
 
@@ -551,8 +509,7 @@ public class Vapor : MonoBehaviour
 			float zc1 = far / near;
 			m_vaporCompute.SetVector("_ZBufferParams", new Vector4(zc0, zc1, zc0 / far, zc1 / far));
 
-			for (int i = 0; i < 11; ++i)
-			{
+			for (int i = 0; i < 11; ++i) {
 				m_vaporCompute.SetTexture(i, "_BlueNoise", m_blueNoiseTex);
 			}
 		}
@@ -581,25 +538,25 @@ public class Vapor : MonoBehaviour
 
 			const double scatteringSize = 1e-18 * 2.5e25;
 
-			float rSize = (float)(r * Math.Pow(size * ScatteringColor.r / 200.0f, 4.0f) * size * size * scatteringSize);
-			float gSize = (float)(r * Math.Pow(size * ScatteringColor.g / 200.0f, 4.0f) * size * size * scatteringSize);
-			float bSize = (float)(r * Math.Pow(size * ScatteringColor.b / 200.0f, 4.0f) * size * size * scatteringSize);
+			float rSize = (float) (r * Math.Pow(size * ScatteringColor.r / 200.0f, 4.0f) * size * size * scatteringSize);
+			float gSize = (float) (r * Math.Pow(size * ScatteringColor.g / 200.0f, 4.0f) * size * size * scatteringSize);
+			float bSize = (float) (r * Math.Pow(size * ScatteringColor.b / 200.0f, 4.0f) * size * size * scatteringSize);
 
 			Vector3 rayleighBase = new Vector3(rSize, gSize, bSize);
-			Vector3 rayleighWeight = rayleighBase * Mathf.Pow(2.0f * Mathf.PI, 4.0f) / (Mathf.Pow(2.0f, 6.0f));
+			Vector3 rayleighWeight = rayleighBase * Mathf.Pow(2.0f * Mathf.PI, 4.0f) / Mathf.Pow(2.0f, 6.0f);
 			Vector3 rayleighCross = rayleighBase * 24 * Mathf.Pow(Mathf.PI, 3.0f);
 
-			rayleighCross.x = (float)Math.Pow(1.0 - rayleighCross.x, 1000);
-			rayleighCross.y = (float)Math.Pow(1.0 - rayleighCross.y, 1000);
-			rayleighCross.z = (float)Math.Pow(1.0 - rayleighCross.z, 1000);
+			rayleighCross.x = (float) Math.Pow(1.0 - rayleighCross.x, 1000);
+			rayleighCross.y = (float) Math.Pow(1.0 - rayleighCross.y, 1000);
+			rayleighCross.z = (float) Math.Pow(1.0 - rayleighCross.z, 1000);
 
 			m_vaporCompute.SetVector("_Rayleigh", rayleighWeight * 1e5f);
 			m_vaporCompute.SetVector("_RayleighCross", rayleighCross);
 
 			var mieScatter = new Vector4(DirectionalScatteringColor.r,
-											DirectionalScatteringColor.g,
-											DirectionalScatteringColor.b,
-											DirectionalScattering * 0.999f);
+				DirectionalScatteringColor.g,
+				DirectionalScatteringColor.b,
+				DirectionalScattering * 0.999f);
 
 			m_vaporCompute.SetVector("_MieScatter", mieScatter);
 			m_vaporCompute.SetFloat("_LambertBeerDensity", Setting.Extinction * 0.1f);
@@ -619,16 +576,14 @@ public class Vapor : MonoBehaviour
 
 		Profiler.BeginSample("Vapor Object Passes");
 		//If there's no directional -> manual clear light buffer
-		if (VaporObject.All.Count == 0 || (VaporObject.All[0] as VaporLight) == null ||
-			((VaporLight)VaporObject.All[0]).LightType != LightType.Directional)
-		{
+		if (VaporObject.All.Count == 0 || VaporObject.All[0] as VaporLight == null ||
+			((VaporLight) VaporObject.All[0]).LightType != LightType.Directional) {
 			SetLightAccum(m_lightClearKernel, false);
 			m_vaporCompute.DispatchScaled(m_lightClearKernel, m_scatterTex.width, m_scatterTex.height, m_scatterTex.volumeDepth);
 		}
 
 		//Inject vapor objects
-		foreach (VaporObject vap in VaporObject.All)
-		{
+		foreach (VaporObject vap in VaporObject.All) {
 			vap.Inject(this, m_vaporCompute, vp);
 		}
 
@@ -658,49 +613,42 @@ public class Vapor : MonoBehaviour
 	}
 
 	[ImageEffectOpaque]
-	void OnRenderImage(RenderTexture source, RenderTexture destination)
-	{
-		if (IsEditorCamera && !DisplayInSceneView)
-		{
+	void OnRenderImage(RenderTexture source, RenderTexture destination) {
+		if (IsEditorCamera && !DisplayInSceneView) {
 			Profiler.BeginSample("Vapor Direct Blit");
 			Graphics.Blit(source, destination);
 			Profiler.EndSample();
 			return;
 		}
 
-#if UNITY_EDITOR
-		if (!Application.isPlaying)
-		{
+	#if UNITY_EDITOR
+		if (!Application.isPlaying) {
 			Profiler.BeginSample("Editor Only Repaint");
 
-			if (Selection.Contains(gameObject))
-			{
+			if (Selection.Contains(gameObject)) {
 				HandleUtility.Repaint();
 			}
 
 			Profiler.EndSample();
 		}
-#endif
+	#endif
 
 		DoComputeSteps();
 
 		var path = Camera.current.actualRenderingPath;
-		if (path == RenderingPath.DeferredShading || path == RenderingPath.DeferredLighting || !ShadersHaveVaporIntegrated)
-		{
+		if (path == RenderingPath.DeferredShading || path == RenderingPath.DeferredLighting || !ShadersHaveVaporIntegrated) {
 			Profiler.BeginSample("Blit to screen");
 			Graphics.Blit(source, destination, m_fogMat, 0);
 			Profiler.EndSample();
 		}
-		else
-		{
+		else {
 			Profiler.BeginSample("Blit to screen");
 			Graphics.Blit(source, destination);
 			Profiler.EndSample();
 		}
 	}
 
-	public RenderTexture GetDensityTex()
-	{
+	public RenderTexture GetDensityTex() {
 		return m_densityTex;
 	}
 }

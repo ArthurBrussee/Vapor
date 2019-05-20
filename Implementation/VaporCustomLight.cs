@@ -4,11 +4,9 @@ using UnityEngine.Rendering;
 using VaporAPI;
 
 [ExecuteInEditMode]
-public class VaporCustomLight : VaporObject
-{
-
+public class VaporCustomLight : VaporObject {
 	public Vector3 Size = Vector3.one;
-	[SerializeField] private VaporSetting m_setting;
+	[SerializeField] VaporSetting m_setting;
 
 	public float Intensity = 1.0f;
 	public Light m_light;
@@ -16,15 +14,11 @@ public class VaporCustomLight : VaporObject
 	public Texture2D CustomShadowMap;
 	RenderTexture m_ShadowmapCopy;
 
-	[Range(0.05f, 0.4f)]
-	public float SpotBaseSize = 0.3f;
+	[Range(0.05f, 0.4f)] public float SpotBaseSize = 0.3f;
 
-	public VaporSetting Setting
-	{
-		get
-		{
-			if (m_setting == null)
-			{
+	public VaporSetting Setting {
+		get {
+			if (m_setting == null) {
 				m_setting = Resources.Load<VaporSetting>("DefaultVaporSetting");
 			}
 
@@ -32,8 +26,7 @@ public class VaporCustomLight : VaporObject
 		}
 	}
 
-	void OnEnable()
-	{
+	void OnEnable() {
 		Register(false);
 		m_light = GetComponent<Light>();
 
@@ -48,13 +41,11 @@ public class VaporCustomLight : VaporObject
 		cb.SetShadowSamplingMode(shadowmap, ShadowSamplingMode.RawDepth);
 		Vapor.ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
-		if (Vapor.ShadowMapMultiplierMaterial == null)
-		{
+		if (Vapor.ShadowMapMultiplierMaterial == null) {
 			//This is a simple blit without manipulating the shadow:
 			cb.Blit(shadowmap, new RenderTargetIdentifier(m_ShadowmapCopy));
 		}
-		else
-		{
+		else {
 			//This blit helps to intensify the shadows by multiplying it with a number/multiplier in the material
 			cb.SetGlobalTexture("_VaporCustomLightShadow", shadowmap);
 			cb.Blit(shadowmap, new RenderTargetIdentifier(m_ShadowmapCopy), Vapor.ShadowMapMultiplierMaterial);
@@ -64,26 +55,22 @@ public class VaporCustomLight : VaporObject
 		m_light.AddCommandBuffer(LightEvent.AfterShadowMap, cb);
 	}
 
-	void OnDisable()
-	{
+	void OnDisable() {
 		Deregister();
 		m_light.RemoveAllCommandBuffers();
 	}
 
-	public override void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj)
-	{
+	public override void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj) {
 		compute.SetMatrix("_ZoneWorldToLocal", transform.worldToLocalMatrix);
 		compute.SetVector("_ZoneSize", Size * 0.5f);
-		
+
 		Vapor.ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
-		if (CustomShadowMap)
-		{
+		if (CustomShadowMap) {
 			Vapor.ShadowMapMultiplierMaterial.EnableKeyword("CustomMap");
 			Vapor.ShadowMapMultiplierMaterial.SetTexture("_VaporCustomShadowMap", CustomShadowMap);
 		}
-		else
-		{
+		else {
 			Vapor.ShadowMapMultiplierMaterial.DisableKeyword("CustomMap");
 		}
 
@@ -106,15 +93,12 @@ public class VaporCustomLight : VaporObject
 		Vector4 lightStrength = m_light.color * m_light.intensity * Intensity;
 		lightStrength *= 10;
 		compute.SetVector("_LightColor", lightStrength);
-		if (m_light.type == LightType.Spot)
-		{
+		if (m_light.type == LightType.Spot) {
 			//Setup the _SpotCookie:
-			if (m_light.cookie != null)
-			{
+			if (m_light.cookie != null) {
 				compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", m_light.cookie);
 			}
-			else
-			{
+			else {
 				compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", vapor.SpotCookie);
 			}
 
@@ -138,8 +122,7 @@ public class VaporCustomLight : VaporObject
 		}
 	}
 
-	public override void GetBounds(Transform space, List<Vector3> worldBounds)
-	{
+	public override void GetBounds(Transform space, List<Vector3> worldBounds) {
 		Vector3 right = space.right;
 		Vector3 up = space.up;
 		Vector3 forward = space.forward;
@@ -156,5 +139,5 @@ public class VaporCustomLight : VaporObject
 		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, Size.z)) - right - up + forward);
 	}
 
-	public override float CullRange { get { return Size.magnitude; } }
+	public override float CullRange => Size.magnitude;
 }

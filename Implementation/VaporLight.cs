@@ -73,12 +73,15 @@ public class VaporLight : VaporObject {
 
 	public Light Light {
 		get {
-			if (m_light == null) { m_light = GetComponent<Light>(); }
+			if (m_light == null) {
+				m_light = GetComponent<Light>();
+			}
+
 			return m_light;
 		}
 	}
 
-	public LightType LightType { get { return Light.type; } }
+	public LightType LightType => Light.type;
 
 	bool ShadowSupported() {
 		return m_light.type == LightType.Directional || m_light.type == LightType.Spot;
@@ -94,7 +97,7 @@ public class VaporLight : VaporObject {
 		}
 	}
 
-	public override float CullRange { get { return m_light.range; } }
+	public override float CullRange => m_light.range;
 
 	void OnEnable() {
 		m_light = GetComponent<Light>();
@@ -135,7 +138,7 @@ public class VaporLight : VaporObject {
 		const int kShadowmapDirSizeMax = 4096;
 
 		const float kMultPoint = 1.0f; // Assume "Very High" shadow map resolution is 1x screen size for point lights.
-		const float kMultSpot = 2.0f; // Assume "Very High" shadow map resolution is 2x screen size for spot lights.
+		const float kMultSpot = 2.0f;  // Assume "Very High" shadow map resolution is 2x screen size for spot lights.
 		const float kMultDir = 3.8f;
 		// Assume "Very High" shadow map resolution is almost 4x of screen size for directional lights.
 
@@ -155,7 +158,6 @@ public class VaporLight : VaporObject {
 					// Based on light size on screen
 					mapSize = Mathf.NextPowerOfTwo(Mathf.RoundToInt(pixelSize * kMultPoint));
 					maxSize = kShadowmapPointSizeMax;
-
 				}
 					break;
 
@@ -269,10 +271,12 @@ public class VaporLight : VaporObject {
 				if (HasShadow) {
 					if (QualitySettings.shadowCascades > 1) {
 						dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.Cascaded);
-					} else {
+					}
+					else {
 						dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.Shadowed);
 					}
-				} else {
+				}
+				else {
 					dirKernel = vapor.LightDirKernel.GetKernel(VaporKernel.ShadowMode.None);
 				}
 
@@ -281,7 +285,8 @@ public class VaporLight : VaporObject {
 				if (HasShadow) {
 					compute.SetBuffer(dirKernel, "_MatrixBuf", MatrixBuffer);
 					compute.SetTexture(dirKernel, "_ShadowMapTexture", m_shadowMap);
-				} else {
+				}
+				else {
 					compute.SetTexture(dirKernel, "_ShadowMapTexture", Texture2D.whiteTexture);
 				}
 
@@ -325,7 +330,8 @@ public class VaporLight : VaporObject {
 				compute.SetMatrix("_SpotMatrix", mat);
 				if (m_light.cookie != null) {
 					compute.SetTexture(spotKernel, "_SpotCookie", m_light.cookie);
-				} else {
+				}
+				else {
 					compute.SetTexture(spotKernel, "_SpotCookie", vapor.SpotCookie);
 				}
 

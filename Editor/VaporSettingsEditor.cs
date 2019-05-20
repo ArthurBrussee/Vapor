@@ -2,13 +2,10 @@
 using UnityEngine;
 
 namespace VaporAPI {
-
-
-
 	[CustomEditor(typeof(VaporSetting))]
 	[CanEditMultipleObjects]
 	public class VaporSettingsEditor : VaporBaseEditor {
-		private static readonly string[] DontIncludeMe = {"m_Script", "HeightGradient", "DistanceGradient"};
+		static readonly string[] DontIncludeMe = {"m_Script", "HeightGradient", "DistanceGradient"};
 
 		void OnEnable() {
 			Undo.undoRedoPerformed += BakeGradients;
@@ -18,13 +15,13 @@ namespace VaporAPI {
 			Undo.undoRedoPerformed -= BakeGradients;
 		}
 
-		private void BakeGradients() {
+		void BakeGradients() {
 			foreach (VaporSetting vap in targets) {
 				vap.UpdateGradients();
 			}
 		}
 
-		private void GradientField(string prop) {
+		void GradientField(string prop) {
 			EditorGUI.BeginChangeCheck();
 			PropertyField(prop, "");
 			if (EditorGUI.EndChangeCheck()) {
@@ -83,7 +80,6 @@ namespace VaporAPI {
 				}
 
 				EditorGUIUtility.labelWidth = w;
-
 			}
 			else {
 				float w = EditorGUIUtility.labelWidth;
@@ -91,7 +87,6 @@ namespace VaporAPI {
 
 				GUILayout.Label("Height gradient");
 				using (new EditorGUILayout.HorizontalScope()) {
-
 					PropertyField("HeightGradient.Start", "Start", GUILayout.Width(EditorGUIUtility.labelWidth + 28.0f));
 					GradientField("HeightGradient.Gradient");
 					PropertyField("HeightGradient.End", "End", GUILayout.Width(EditorGUIUtility.labelWidth + 28.0f));
@@ -106,7 +101,6 @@ namespace VaporAPI {
 				}
 
 				EditorGUIUtility.labelWidth = w;
-
 			}
 
 

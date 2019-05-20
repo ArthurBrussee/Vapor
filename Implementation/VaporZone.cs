@@ -8,7 +8,7 @@ public class VaporZone : VaporObject {
 	public float Radius = 0.05f;
 	[SerializeField] VaporSetting m_setting;
 
-	public override float CullRange { get { return Size.magnitude + Radius; } }
+	public override float CullRange => Size.magnitude + Radius;
 
 	public VaporSetting Setting {
 		get {
