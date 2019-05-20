@@ -74,7 +74,7 @@ public class VaporCustomLight : VaporObject
 	{
 		compute.SetMatrix("_ZoneWorldToLocal", transform.worldToLocalMatrix);
 		compute.SetVector("_ZoneSize", Size * 0.5f);
-		compute.SetFloat("_ZoneIntensity", Intensity);
+		
 		Vapor.ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
 		if (CustomShadowMap)
