@@ -12,7 +12,11 @@ public class VaporCustomLight : VaporObject {
 	public Light m_light;
 	public float ShadowValue = 1.0f;
 	public Texture2D CustomShadowMap;
-	RenderTexture m_ShadowmapCopy;
+	public override float CullRange => Size.magnitude;
+	
+	static Material s_shadowMapMultiplierMaterial;
+	
+	RenderTexture m_shadowmapCopy;
 
 	[Range(0.05f, 0.4f)] public float SpotBaseSize = 0.3f;
 
@@ -32,26 +36,26 @@ public class VaporCustomLight : VaporObject {
 
 		//shadowmap:
 		RenderTargetIdentifier shadowmap = BuiltinRenderTextureType.CurrentActive;
-		m_ShadowmapCopy = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32);
-		m_ShadowmapCopy.filterMode = FilterMode.Bilinear;
-		m_ShadowmapCopy.wrapMode = TextureWrapMode.Clamp;
-		m_ShadowmapCopy.Create();
+		
+		m_shadowmapCopy = new RenderTexture(1024, 1024, 0, RenderTextureFormat.ARGB32);
+		m_shadowmapCopy.filterMode = FilterMode.Bilinear;
+		m_shadowmapCopy.wrapMode = TextureWrapMode.Clamp;
+		m_shadowmapCopy.Create();
 
 		CommandBuffer cb = new CommandBuffer();
 		cb.SetShadowSamplingMode(shadowmap, ShadowSamplingMode.RawDepth);
-		Vapor.ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
-		if (Vapor.ShadowMapMultiplierMaterial == null) {
-			//This is a simple blit without manipulating the shadow:
-			cb.Blit(shadowmap, new RenderTargetIdentifier(m_ShadowmapCopy));
-		}
-		else {
-			//This blit helps to intensify the shadows by multiplying it with a number/multiplier in the material
-			cb.SetGlobalTexture("_VaporCustomLightShadow", shadowmap);
-			cb.Blit(shadowmap, new RenderTargetIdentifier(m_ShadowmapCopy), Vapor.ShadowMapMultiplierMaterial);
+		if (s_shadowMapMultiplierMaterial == null) {
+			s_shadowMapMultiplierMaterial = new Material(Shader.Find("Hidden/Vapor/VaporShadowMultiplier")) {
+				hideFlags =  HideFlags.HideAndDontSave
+			};
 		}
 
-		Shader.SetGlobalTexture("_VaporCustomLightShadow", m_ShadowmapCopy);
+		s_shadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
+
+		//This blit helps to intensify the shadows by multiplying it with a number/multiplier in the material
+		cb.SetGlobalTexture("_VaporCustomLightShadow", shadowmap);
+		cb.Blit(shadowmap, new RenderTargetIdentifier(m_shadowmapCopy), s_shadowMapMultiplierMaterial);
 		m_light.AddCommandBuffer(LightEvent.AfterShadowMap, cb);
 	}
 
@@ -61,17 +65,23 @@ public class VaporCustomLight : VaporObject {
 	}
 
 	public override void Inject(Vapor vapor, ComputeShader compute, Matrix4x4 viewProj) {
+		if (m_light.type != LightType.Spot) {
+			Debug.LogError("Custom lights only work for spot lights!");
+			return;
+		}
+		
 		compute.SetMatrix("_ZoneWorldToLocal", transform.worldToLocalMatrix);
 		compute.SetVector("_ZoneSize", Size * 0.5f);
 
-		Vapor.ShadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
+		s_shadowMapMultiplierMaterial.SetFloat("_Range", ShadowValue);
 
 		if (CustomShadowMap) {
-			Vapor.ShadowMapMultiplierMaterial.EnableKeyword("CustomMap");
-			Vapor.ShadowMapMultiplierMaterial.SetTexture("_VaporCustomShadowMap", CustomShadowMap);
+			s_shadowMapMultiplierMaterial.EnableKeyword("CustomMap");
+			s_shadowMapMultiplierMaterial.SetTexture("_VaporCustomShadowMap", CustomShadowMap);
 		}
 		else {
-			Vapor.ShadowMapMultiplierMaterial.DisableKeyword("CustomMap");
+			s_shadowMapMultiplierMaterial.DisableKeyword("CustomMap");
+			s_shadowMapMultiplierMaterial.SetTexture("_VaporCustomShadowMap", Texture2D.blackTexture);
 		}
 
 		//setup the light properties here so that we can use the light-shafts
@@ -87,46 +97,46 @@ public class VaporCustomLight : VaporObject {
 		//Setup the lightPosRange etc params:
 		//Setup basic params
 		Vector4 posRange = transform.position;
-		posRange.w = 1.0f / (m_light.range * m_light.range);
+		
+		float range = m_light.range;
+		posRange.w = 1.0f / (range * range);
 		compute.SetVector("_LightPosRange", posRange);
 
 		Vector4 lightStrength = m_light.color * m_light.intensity * Intensity;
 		lightStrength *= 10;
 		compute.SetVector("_LightColor", lightStrength);
-		if (m_light.type == LightType.Spot) {
-			//Setup the _SpotCookie:
-			if (m_light.cookie != null) {
-				compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", m_light.cookie);
-			}
-			else {
-				compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", vapor.SpotCookie);
-			}
 
-			//Handle the shadows:
-			Matrix4x4 v = transform.worldToLocalMatrix;
-			Matrix4x4 p =
-				GL.GetGPUProjectionMatrix(Matrix4x4.Perspective(m_light.spotAngle, 1.0f,
-					m_light.shadowNearPlane,
-					m_light.range), true);
-
-			//For some reason z is flipped :(
-			p *= Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f));
-
-			compute.SetMatrix("_SpotShadowMatrix", p * v);
-			compute.SetTexture(vapor.CustomLightKernel, "_SpotShadow", m_ShadowmapCopy);
-
-			Setting.Bind(compute, vapor.CustomLightKernel, Setting, 0.0f);
-			compute.SetTexture(vapor.CustomLightKernel, "_DensityTextureWrite", vapor.GetDensityTex());
-			vapor.SetLightAccum(vapor.CustomLightKernel, false);
-			vapor.InjectObject(viewProj, vapor.CustomLightKernel, this);
+		//Setup the _SpotCookie:
+		if (m_light.cookie != null) {
+			compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", m_light.cookie);
 		}
+		else {
+			compute.SetTexture(vapor.CustomLightKernel, "_SpotCookie", vapor.SpotCookie);
+		}
+
+		//Handle the shadows:
+		Matrix4x4 v = transform.worldToLocalMatrix;
+		Matrix4x4 p =
+			GL.GetGPUProjectionMatrix(Matrix4x4.Perspective(m_light.spotAngle, 1.0f,
+				m_light.shadowNearPlane,
+				m_light.range), true);
+
+		//For some reason z is flipped :(
+		p *= Matrix4x4.Scale(new Vector3(1.0f, 1.0f, -1.0f));
+
+		compute.SetMatrix("_SpotShadowMatrix", p * v);
+		compute.SetTexture(vapor.CustomLightKernel, "_SpotShadow", m_shadowmapCopy);
+
+		Setting.Bind(compute, vapor.CustomLightKernel, Setting, 0.0f);
+		compute.SetTexture(vapor.CustomLightKernel, "_DensityTextureWrite", vapor.GetDensityTex());
+		vapor.SetLightAccum(vapor.CustomLightKernel, false);
+		vapor.InjectObject(viewProj, vapor.CustomLightKernel, this);
 	}
 
 	public override void GetBounds(Transform space, List<Vector3> worldBounds) {
 		Vector3 right = space.right;
 		Vector3 up = space.up;
 		Vector3 forward = space.forward;
-
 
 		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, Size.y, 0f)) + right + up - forward);
 		worldBounds.Add(transform.TransformPoint(new Vector3(Size.x, -Size.y, 0f)) + right - up - forward);
@@ -138,6 +148,4 @@ public class VaporCustomLight : VaporObject {
 		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, Size.y, Size.z)) - right + up + forward);
 		worldBounds.Add(transform.TransformPoint(new Vector3(-Size.x, -Size.y, Size.z)) - right - up + forward);
 	}
-
-	public override float CullRange => Size.magnitude;
 }

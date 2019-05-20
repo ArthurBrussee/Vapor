@@ -69,10 +69,6 @@ public class Vapor : MonoBehaviour {
 
 	public static Color DefaultScatteringColor = 200.0f * new Color(1.0f / 650.0f, 1.0f / 530.0f, 1.0f / 460.0f);
 
-	/// <summary>
-	///     Default Vapor ShadowMapMultiplierMaterial
-	/// </summary>
-	public static Material ShadowMapMultiplierMaterial;
 
 	[Range(0.0f, 1.0f)] public float DirectionalScattering;
 
@@ -198,8 +194,8 @@ public class Vapor : MonoBehaviour {
 		m_scatterKernel = m_vaporCompute.FindKernel("Scatter");
 		m_integrateKernel = m_vaporCompute.FindKernel("Integrate");
 		m_integrateClearKernel = m_vaporCompute.FindKernel("IntegrateClear");
+		
 		m_fogMat = new Material(Shader.Find("Hidden/VaporPost")) {hideFlags = HideFlags.HideAndDontSave};
-		ShadowMapMultiplierMaterial = new Material(Shader.Find("Hidden/Vapor/VaporShadowMultiplier"));
 
 		m_blueNoiseTex = Resources.Load<Texture2D>("BlueNoise");
 
@@ -225,7 +221,6 @@ public class Vapor : MonoBehaviour {
 		DestroyImmediate(m_scatterTex);
 		DestroyImmediate(m_scatterTexOld);
 		DestroyImmediate(m_integratedTexture);
-		DestroyImmediate(ShadowMapMultiplierMaterial);
 
 		if (m_cullGroup != null) {
 			m_cullGroup.Dispose();
