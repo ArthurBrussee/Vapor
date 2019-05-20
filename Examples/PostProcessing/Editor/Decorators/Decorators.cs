@@ -26,13 +26,13 @@ namespace UnityEditor.Rendering.PostProcessing
             return false;
         }
     }
-    
+
     [Decorator(typeof(UnityEngine.Rendering.PostProcessing.MinAttribute))]
     public sealed class MinDecorator : AttributeDecorator
     {
         public override bool OnGUI(SerializedProperty property, SerializedProperty overrideState, GUIContent title, Attribute attribute)
         {
-            var attr = (MinAttribute)attribute;
+            var attr = (UnityEngine.Rendering.PostProcessing.MinAttribute)attribute;
 
             if (property.propertyType == SerializedPropertyType.Float)
             {
@@ -51,7 +51,7 @@ namespace UnityEditor.Rendering.PostProcessing
             return false;
         }
     }
-    
+
     [Decorator(typeof(UnityEngine.Rendering.PostProcessing.MaxAttribute))]
     public sealed class MaxDecorator : AttributeDecorator
     {
@@ -76,7 +76,7 @@ namespace UnityEditor.Rendering.PostProcessing
             return false;
         }
     }
-    
+
     [Decorator(typeof(UnityEngine.Rendering.PostProcessing.MinMaxAttribute))]
     public sealed class MinMaxDecorator : AttributeDecorator
     {
